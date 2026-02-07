@@ -30,7 +30,7 @@ examples:
   python run_agent.py --interactive
 
   # specify CTI folder and output directory
-  python run_agent.py --cti-folder sigma_detection_agent/cti_src --output generated/
+  python run_agent.py --cti-folder cti_src --output generated/
 
   # test CTI loading only
   python run_agent.py --test-cti
@@ -52,8 +52,8 @@ phases:
     parser.add_argument(
         '--cti-folder',
         type=str,
-        default='sigma_detection_agent/cti_src',
-        help='path to CTI files folder (default: sigma_detection_agent/cti_src)'
+        default='cti_src',
+        help='path to CTI files folder (default: cti_src)'
     )
 
     parser.add_argument(

@@ -1,0 +1,147 @@
+name: Generate Detection Rules from CTI
+
+#generate Sigma rules and test payloads from CTI sources
+#runs agent in GitHub Actions environment
+
+on:
+  workflow_dispatch:  #manual trigger
+  push:
+    branches: [main]
+    paths:
+      - 'cti_src/**'  #trigger when CTI files change
+  schedule:
+    - cron: '0 0 * * 0'  #weekly on Sunday
+
+jobs:
+  generate-rules:
+    name: Generate Sigma Rules from CTI
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Check CTI Files
+        run: |
+          echo "CTI files to process:"
+          find cti_src -type f \( -name "*.md" -o -name "*.txt" -o -name "*.pdf" -o -name "*.docx" \) -ls
+          FILE_COUNT=$(find cti_src -type f \( -name "*.md" -o -name "*.txt" -o -name "*.pdf" -o -name "*.docx" \) | wc -l)
+          echo "Total CTI files: $FILE_COUNT"
+
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "ERROR: No CTI files found in cti_src/"
+            exit 1
+          fi
+
+      - name: Generate Detection Rules
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+        run: |
+          echo "Starting detection rule generation from CTI sources..."
+
+          #use iterative mode for best quality
+          python run_agent.py \
+            --iterative \
+            --cti-folder cti_src \
+            --output generated \
+            --max-retries 3
+
+      - name: Verify Generated Rules
+        run: |
+          echo "Checking generated artifacts..."
+
+          #count sigma rules
+          if [ -d "generated/sigma_rules" ]; then
+            RULE_COUNT=$(find generated/sigma_rules -name "*.yml" | wc -l)
+            echo "Generated Sigma rules: $RULE_COUNT"
+            ls -lh generated/sigma_rules/
+          else
+            echo "WARNING: No sigma_rules directory found"
+            RULE_COUNT=0
+          fi
+
+          #count test payloads
+          if [ -d "generated/tests" ]; then
+            TEST_COUNT=$(find generated/tests -name "*.json" | wc -l)
+            echo "Generated test payloads: $TEST_COUNT"
+            ls -lh generated/tests/
+          else
+            echo "WARNING: No tests directory found"
+            TEST_COUNT=0
+          fi
+
+          #require at least some output
+          if [ "$RULE_COUNT" -eq 0 ]; then
+            echo "ERROR: No Sigma rules were generated"
+            exit 1
+          fi
+
+      - name: Commit Generated Rules
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add generated/
+
+          #check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            #count files changed
+            RULE_COUNT=$(find generated/sigma_rules -name "*.yml" 2>/dev/null | wc -l)
+            TEST_COUNT=$(find generated/tests -name "*.json" 2>/dev/null | wc -l)
+
+            git commit -m "ci: Generate detection rules from CTI
+
+Generated:
+- $RULE_COUNT Sigma detection rules
+- $TEST_COUNT test payloads
+
+Source: cti_src/
+Agent: Iterative pipeline (2-3 refinement iterations)
+Quality: Ready for integration testing"
+
+            git push
+          fi
+
+      - name: Upload Session Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generation-session-results
+          path: generated/iterative_session_*.json
+          retention-days: 30
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "================================"
+          echo "✓ Detection Generation Complete"
+          echo "================================"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Integration tests will run automatically"
+          echo "  2. LLM judge will evaluate quality"
+          echo "  3. Review results in PR or workflow artifacts"
+          echo ""
+          echo "Generated artifacts committed to generated/"
