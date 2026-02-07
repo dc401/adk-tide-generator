@@ -111,15 +111,7 @@ jobs:
             RULE_COUNT=$(find generated/sigma_rules -name "*.yml" 2>/dev/null | wc -l)
             TEST_COUNT=$(find generated/tests -name "*.json" 2>/dev/null | wc -l)
 
-            git commit -m "ci: Generate detection rules from CTI
-
-Generated:
-- $RULE_COUNT Sigma detection rules
-- $TEST_COUNT test payloads
-
-Source: cti_src/
-Agent: Iterative pipeline (2-3 refinement iterations)
-Quality: Ready for integration testing"
+            git commit -m "ci: Generate $RULE_COUNT Sigma rules and $TEST_COUNT test payloads from CTI"
 
             git push
           fi
