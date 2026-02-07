@@ -2,22 +2,26 @@
 """
 LLM Judge: Evaluate detection rule quality based on empirical test results
 
-Uses Gemini API to analyze Sigma rules + integration test results
+Uses Vertex AI Gemini to analyze Sigma rules + integration test results
 and provide deployment recommendations.
+
+Requires: gcloud auth application-default login
 """
 
 import json
 import yaml
 import sys
+import os
 from pathlib import Path
 from typing import Dict, List
 from datetime import datetime
 
 try:
-    import google.generativeai as genai
+    import vertexai
+    from vertexai.generative_models import GenerativeModel
 except ImportError:
-    print("ERROR: google-generativeai library not installed")
-    print("Run: pip install google-generativeai")
+    print("ERROR: google-cloud-aiplatform library not installed")
+    print("Run: pip install google-cloud-aiplatform")
     sys.exit(1)
 
 def load_judge_prompt() -> str:
@@ -341,7 +345,8 @@ def main():
                        help='Integration test results file')
     parser.add_argument('--output', default='generated/QUALITY_REPORT.json',
                        help='Output quality report file')
-    parser.add_argument('--api-key', help='Google AI API key (or set GOOGLE_API_KEY env var)')
+    parser.add_argument('--project', help='GCP project ID (or set GOOGLE_CLOUD_PROJECT env var)')
+    parser.add_argument('--location', default='us-central1', help='GCP region (default: us-central1)')
     args = parser.parse_args()
 
     rules_dir = Path(args.rules)
@@ -362,18 +367,22 @@ def main():
         print(f"ERROR: Test results not found: {results_file}")
         return 1
 
-    #setup Gemini API
-    api_key = args.api_key or os.environ.get('GOOGLE_API_KEY')
+    #setup Vertex AI (uses ADC - Application Default Credentials)
+    project_id = args.project or os.environ.get('GOOGLE_CLOUD_PROJECT')
 
-    if not api_key:
-        print("ERROR: Google AI API key not provided")
-        print("Set GOOGLE_API_KEY environment variable or use --api-key")
+    if not project_id:
+        print("ERROR: GCP project ID not provided")
+        print("Set GOOGLE_CLOUD_PROJECT environment variable or use --project")
+        print("\nTip: gcloud config get-value project")
         return 1
 
-    genai.configure(api_key=api_key)
+    print(f"Using Vertex AI in project: {project_id} (region: {args.location})")
+    print(f"Authentication: Application Default Credentials")
+
+    vertexai.init(project=project_id, location=args.location)
 
     #use Gemini Pro for evaluation
-    model = genai.GenerativeModel('gemini-pro')
+    model = GenerativeModel('gemini-1.5-pro')
 
     print(f"\n{'='*80}")
     print("LLM JUDGE: DETECTION RULE QUALITY EVALUATION")

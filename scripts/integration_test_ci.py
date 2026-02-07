@@ -87,12 +87,16 @@ def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
 
     index_name = "test-logs"
 
-    #create index
-    if es.indices.exists(index=index_name):
-        es.indices.delete(index=index_name)
+    #create index (delete if exists)
+    try:
+        if es.indices.exists(index=index_name):
+            es.indices.delete(index=index_name)
+    except Exception:
+        pass  #index doesn't exist, that's fine
 
-    es.indices.create(index=index_name, body={
-        "mappings": {
+    es.indices.create(
+        index=index_name,
+        mappings={
             "properties": {
                 "timestamp": {"type": "date"},
                 "protoPayload": {"type": "object", "enabled": True},
@@ -101,7 +105,7 @@ def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
                 "_expected_detection": {"type": "boolean"}
             }
         }
-    })
+    )
 
     payload_map = {}
     total_ingested = 0
@@ -154,7 +158,7 @@ def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "t
         }
 
         try:
-            response = es.search(index=index_name, body=query_dsl)
+            response = es.search(index=index_name, query=query_dsl['query'], size=query_dsl['size'])
             matched_ids = [hit['_id'] for hit in response['hits']['hits']]
             detections[rule_id] = matched_ids
         except Exception as e:
