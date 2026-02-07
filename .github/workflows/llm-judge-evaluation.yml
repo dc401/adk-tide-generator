@@ -1,0 +1,154 @@
+name: LLM Judge Quality Evaluation
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Test Detection Rules"]
+    types:
+      - completed
+
+jobs:
+  llm-judge:
+    name: Evaluate Detection Quality with LLM Judge
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install google-cloud-aiplatform pysigma pysigma-backend-elasticsearch pyyaml
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Download Integration Test Results
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: integration-test-results
+          path: generated/
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run LLM Judge Evaluation
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+        run: |
+          python scripts/run_llm_judge.py \
+            --rules generated/sigma_rules \
+            --tests generated/tests \
+            --results generated/INTEGRATION_TEST_RESULTS.json \
+            --output generated/QUALITY_REPORT.json \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --location ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+
+      - name: Upload Quality Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report
+          path: |
+            generated/QUALITY_REPORT.json
+          retention-days: 90
+
+      - name: Check Quality Threshold
+        run: |
+          python3 << 'EOF'
+          import json
+          import sys
+
+          with open('generated/QUALITY_REPORT.json') as f:
+              report = json.load(f)
+
+          summary = report.get('summary', {})
+          avg_quality = summary.get('aggregate_metrics', {}).get('avg_quality_score', 0)
+
+          print(f"\n{'='*80}")
+          print("LLM JUDGE QUALITY EVALUATION")
+          print(f"{'='*80}\n")
+          print(f"Overall Quality Score: {avg_quality:.2f}")
+          print(f"Deployment Breakdown:")
+          for decision, count in summary.get('deployment_breakdown', {}).items():
+              print(f"  {decision}: {count}")
+          print()
+
+          if avg_quality >= 0.75:
+              print("✅ PASS: Quality score meets deployment threshold (≥ 0.75)")
+              sys.exit(0)
+          elif avg_quality >= 0.60:
+              print("⚠️  CONDITIONAL: Quality acceptable but needs review (0.60-0.74)")
+              sys.exit(0)
+          else:
+              print("❌ FAIL: Quality below acceptable threshold (< 0.60)")
+              sys.exit(1)
+          EOF
+
+      - name: Comment on Commit
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            if (!fs.existsSync('generated/QUALITY_REPORT.json')) {
+              console.log('No quality report found');
+              return;
+            }
+
+            const report = JSON.parse(fs.readFileSync('generated/QUALITY_REPORT.json', 'utf8'));
+            const summary = report.summary || {};
+            const metrics = summary.aggregate_metrics || {};
+            const breakdown = summary.deployment_breakdown || {};
+
+            const comment = `## LLM Judge Quality Evaluation
+
+            **Overall Quality Score:** ${metrics.avg_quality_score?.toFixed(2) || 'N/A'}
+
+            **Deployment Recommendations:**
+            - ✅ **APPROVE**: ${breakdown.APPROVE || 0} rules ready for production
+            - ⚠️  **CONDITIONAL**: ${breakdown.CONDITIONAL || 0} rules need review
+            - ❌ **REJECT**: ${breakdown.REJECT || 0} rules need rework
+
+            **Aggregate Metrics:**
+            - Precision: ${metrics.avg_precision?.toFixed(2) || 'N/A'}
+            - Recall: ${metrics.avg_recall?.toFixed(2) || 'N/A'}
+            - F1 Score: ${metrics.avg_f1_score?.toFixed(2) || 'N/A'}
+
+            ${metrics.avg_quality_score >= 0.75 ? '✅ **Quality PASS** - Ready for deployment' : metrics.avg_quality_score >= 0.60 ? '⚠️ **Quality CONDITIONAL** - Review recommended' : '❌ **Quality FAIL** - Needs rework'}
+
+            <details>
+            <summary>Top Performing Rules</summary>
+
+            ${(summary.top_performing_rules || []).map(r =>
+              `- ${r.title} (F1: ${r.f1_score?.toFixed(2)})`
+            ).join('\n')}
+
+            </details>
+
+            <details>
+            <summary>Rules Needing Attention</summary>
+
+            ${(summary.rules_needing_attention || []).map(r =>
+              `- ${r.title}\n  Issue: ${r.issue}`
+            ).join('\n\n')}
+
+            </details>
+
+            **Full report available in workflow artifacts.**
+            `;
+
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: comment
+            });

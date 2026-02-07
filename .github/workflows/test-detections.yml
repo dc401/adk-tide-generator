@@ -42,7 +42,7 @@ jobs:
           python scripts/validate_test_payloads.py generated/tests/
 
   integration-test:
-    name: Integration Test with Elasticsearch
+    name: Integration Test with Real Elasticsearch
     runs-on: ubuntu-latest
     needs: unit-test
     services:
@@ -51,7 +51,7 @@ jobs:
         env:
           discovery.type: single-node
           xpack.security.enabled: false
-          ES_JAVA_OPTS: -Xms256m -Xmx256m
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
           bootstrap.memory_lock: false
         ports:
           - 9200:9200
@@ -59,7 +59,7 @@ jobs:
           --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 20
+          --health-retries 30
 
     steps:
       - uses: actions/checkout@v4
@@ -72,15 +72,18 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install elasticsearch pysigma pysigma-backend-elasticsearch pyyaml
+          pip install elasticsearch pysigma pysigma-backend-elasticsearch pyyaml requests
 
       - name: Wait for Elasticsearch
         run: |
-          timeout 120 bash -c 'until curl -s http://localhost:9200/_cluster/health | grep -q "green\|yellow"; do echo "Waiting for ES..."; sleep 5; done'
-          curl -s http://localhost:9200/_cluster/health
+          echo "Waiting for Elasticsearch to be ready..."
+          timeout 180 bash -c 'until curl -s http://localhost:9200/_cluster/health | grep -q "green\|yellow"; do echo "Waiting for ES... ($(date +%s))"; sleep 5; done'
+          echo "Elasticsearch health check:"
+          curl -s http://localhost:9200/_cluster/health | jq '.'
 
-      - name: Run Integration Tests
+      - name: Run Integration Tests (REAL ELK - NOT MOCK)
         run: |
+          echo "Running REAL integration test with Elasticsearch service"
           python scripts/integration_test_ci.py \
             --rules generated/sigma_rules \
             --tests generated/tests \
