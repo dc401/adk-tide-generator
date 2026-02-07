@@ -62,7 +62,7 @@ jobs:
       - name: Check CTI Files
         run: |
           echo "Checking for CTI files..."
-          FILE_COUNT=$(find sigma_detection_agent/cti_src -type f \( -name "*.md" -o -name "*.txt" -o -name "*.pdf" -o -name "*.docx" \) | wc -l)
+          FILE_COUNT=$(find cti_src -type f \( -name "*.md" -o -name "*.txt" -o -name "*.pdf" -o -name "*.docx" \) | wc -l)
           echo "Found $FILE_COUNT CTI file(s)"
 
           if [ "$FILE_COUNT" -eq 0 ]; then
