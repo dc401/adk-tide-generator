@@ -1,0 +1,50 @@
+title: GCP Compute Snapshot Deleted
+id: d6e7f8g9-h0i1-43k4-l5m6-n7o8p9q0r1s2
+status: stable
+description: Detects the deletion of a Compute Engine disk snapshot. Adversaries may
+  delete snapshots to inhibit system recovery, often as a precursor to a ransomware
+  attack or other destructive event.
+references:
+- https://attack.mitre.org/techniques/T1490/
+- https://cloud.google.com/compute/docs/disks/create-snapshots
+author: Automated Detection Agent
+date: '2024-07-29'
+modified: '2024-07-31'
+tags:
+- attack.impact
+- attack.t1490
+logsource:
+  product: gcp
+  service: gcp.audit
+detection:
+  selection:
+    protoPayload.methodName|endswith: compute.snapshots.delete
+  filter_legitimate:
+    protoPayload.authenticationInfo.principalEmail|re: .+@gcp-sa-gce-snapshot\.iam\.gserviceaccount\.com
+  condition: selection and not filter_legitimate
+falsepositives:
+- Automated scripts or infrastructure-as-code (e.g., Terraform) deleting snapshots
+  as part of resource cleanup.
+- Administrators manually deleting old or unnecessary snapshots to save costs.
+- Snapshot lifecycle policies deleting snapshots that have passed their retention
+  period.
+level: medium
+fields:
+- protoPayload.authenticationInfo.principalEmail
+- resource.labels.project_id
+- protoPayload.resourceName
+- protoPayload.requestMetadata.callerIp
+test_scenarios:
+  true_positive: An attacker with editor rights deletes all available disk snapshots
+    to prevent recovery before deploying ransomware.
+  false_negative: An attacker modifies a snapshot retention policy to retain zero
+    snapshots. The modification of the policy would be the event to detect, not the
+    subsequent deletions by the system.
+  false_positive: A snapshot lifecycle policy, executed by '1234@gcp-sa-gce-snapshot.iam.gserviceaccount.com',
+    deletes a snapshot that is older than its configured retention period.
+  true_negative: A new snapshot is created as part of a daily backup schedule.
+  log_source_schema: https://cloud.google.com/logging/docs/audit/gcp-audit-logs-v2
+  example_log_fields:
+    protoPayload.methodName: v1.compute.snapshots.delete
+    protoPayload.authenticationInfo.principalEmail: attacker@example.com
+    protoPayload.resourceName: projects/victim-project/global/snapshots/snapshot-to-delete

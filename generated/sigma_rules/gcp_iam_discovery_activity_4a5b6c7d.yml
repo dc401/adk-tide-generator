@@ -1,0 +1,52 @@
+title: GCP IAM Discovery Activity
+id: 4a5b6c7d-8e9f-4b1c-2d3e-4f5a6b7c8d9e
+status: experimental
+description: Detects enumeration of IAM policies and service accounts. After gaining
+  access, adversaries perform reconnaissance to map permissions and plan escalation.
+  This rule is highly informational and should be used for threat hunting, not direct
+  alerting, unless correlated and thresholded in a SIEM.
+references:
+- https://attack.mitre.org/techniques/T1087/004/
+- https://cloud.google.com/iam/docs/reference/rest
+author: Automated Detection Agent
+date: '2024-07-29'
+modified: '2024-07-31'
+tags:
+- attack.discovery
+- attack.t1087.004
+logsource:
+  product: gcp
+  service: gcp.audit
+detection:
+  selection:
+    protoPayload.methodName:
+    - google.iam.v1.IAMPolicy.GetIamPolicy
+    - google.iam.v1.IAMPolicy.TestIamPermissions
+    - google.iam.admin.v1.ListServiceAccounts
+    - google.cloud.resourcemanager.v3.Projects.GetIamPolicy
+  condition: selection
+falsepositives:
+- Any legitimate use of the GCP Console, `gcloud`, or IaC tools which make numerous
+  'Get' and 'List' calls.
+- This rule is extremely noisy and requires a SIEM to apply anomaly detection or thresholding
+  (e.g., >N calls from a single user in Y minutes) to become actionable.
+level: informational
+fields:
+- protoPayload.authenticationInfo.principalEmail
+- protoPayload.requestMetadata.callerIp
+- protoPayload.requestMetadata.callerSuppliedUserAgent
+- protoPayload.resourceName
+test_scenarios:
+  true_positive: An attacker uses a script to iterate through all projects, calling
+    'GetIamPolicy' and 'TestIamPermissions' on each one.
+  false_negative: An attacker who already knows their target does not need to perform
+    broad discovery, thus may not trigger any threshold-based alerts built on this
+    rule.
+  false_positive: A developer opens the IAM page in the GCP console, triggering dozens
+    of 'GetIamPolicy' calls.
+  true_negative: A user creates a new Cloud Storage bucket.
+  log_source_schema: https://cloud.google.com/logging/docs/audit/gcp-audit-logs-v2
+  example_log_fields:
+    protoPayload.methodName: google.iam.v1.IAMPolicy.GetIamPolicy
+    protoPayload.authenticationInfo.principalEmail: attacker@example.com
+    protoPayload.requestMetadata.callerSuppliedUserAgent: Python-urllib/3.9

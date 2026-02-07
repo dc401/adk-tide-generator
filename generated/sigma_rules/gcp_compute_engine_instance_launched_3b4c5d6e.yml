@@ -1,0 +1,52 @@
+title: GCP Compute Engine Instance Launched
+id: 3b4c5d6e-7f8g-4a0b-1c2d-3e4f5a6b7c8d
+status: experimental
+description: Detects the launch of a new GCP Compute Engine virtual machine instance.
+  Adversaries may launch new instances in a compromised environment for C2, data staging,
+  or to expand their operational infrastructure. This rule is informational and intended
+  for hunting.
+references:
+- https://attack.mitre.org/techniques/T1648/
+- https://cloud.google.com/compute/docs/instances/create-start-instance
+author: Automated Detection Agent
+date: '2024-07-29'
+modified: '2024-07-31'
+tags:
+- attack.resource_development
+- attack.t1648
+logsource:
+  product: gcp
+  service: gcp.audit
+detection:
+  selection:
+    protoPayload.methodName|endswith: compute.instances.insert
+  filter_legitimate:
+    principal:
+      protoPayload.authenticationInfo.principalEmail|re: .*@gce-spot-agent\.iam\.gserviceaccount\.com|.*@cloudbuild\.gserviceaccount\.com
+    tool:
+      protoPayload.requestMetadata.callerSuppliedUserAgent|contains: Terraform
+  condition: selection and not (principal or tool)
+falsepositives:
+- Legitimate creation of VMs by developers for testing.
+- Auto-scaling groups launching new instances in response to increased load.
+- CI/CD pipelines creating ephemeral VMs for build and test jobs.
+- Deployment of new applications via infrastructure-as-code.
+level: informational
+fields:
+- protoPayload.authenticationInfo.principalEmail
+- protoPayload.resourceName
+- resource.labels.project_id
+- protoPayload.request.machineType
+test_scenarios:
+  true_positive: An attacker with compromised credentials uses a custom script to
+    create a new VM named 'c2-server' to host their infrastructure.
+  false_negative: An attacker compromises an existing, dormant VM and repurposes it,
+    which does not involve an 'insert' operation.
+  false_positive: A Google Compute Engine autoscaler group creates a new VM to handle
+    a spike in web traffic.
+  true_negative: An administrator stops and then starts an existing VM.
+  log_source_schema: https://cloud.google.com/logging/docs/audit/gcp-audit-logs-v2
+  example_log_fields:
+    protoPayload.methodName: v1.compute.instances.insert
+    protoPayload.authenticationInfo.principalEmail: attacker@example.com
+    protoPayload.resourceName: projects/victim-project/zones/us-central1-a/instances/c2-server

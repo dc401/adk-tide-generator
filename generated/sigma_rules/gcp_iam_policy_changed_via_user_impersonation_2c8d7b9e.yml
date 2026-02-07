@@ -1,0 +1,55 @@
+title: GCP IAM Policy Changed via User Impersonation
+id: 2c8d7b9e-6a4c-4e8d-8a6c-9c3f5d7b1a0e
+status: experimental
+description: Detects when an IAM policy is modified by a human user that is actively
+  impersonating a service account. This indicates that an escalated privilege obtained
+  through impersonation is being used for lateral movement or persistence by altering
+  permissions.
+references:
+- https://attack.mitre.org/techniques/T1021/007/
+- https://cloud.google.com/iam/docs/impersonating-service-accounts
+author: Automated Detection Agent
+date: '2024-07-29'
+modified: '2024-07-31'
+tags:
+- attack.lateral_movement
+- attack.persistence
+- attack.t1021.007
+logsource:
+  product: gcp
+  service: gcp.audit
+detection:
+  selection:
+    protoPayload.methodName|endswith: SetIamPolicy
+    protoPayload.authenticationInfo.serviceAccountDelegationInfo: '*'
+    protoPayload.authenticationInfo.principalEmail|contains: '@'
+  filter_legitimate:
+    protoPayload.authenticationInfo.principalEmail|endswith: .gserviceaccount.com
+  condition: selection and not filter_legitimate
+falsepositives:
+- Legitimate administrative actions performed by users who are correctly configured
+  to use service account impersonation for managing IAM policies.
+- Automated CI/CD pipelines that use user-impersonation to deploy infrastructure and
+  set permissions.
+level: critical
+fields:
+- protoPayload.authenticationInfo.principalEmail
+- protoPayload.authenticationInfo.serviceAccountDelegationInfo.firstPartyPrincipal.principalEmail
+- protoPayload.resourceName
+- protoPayload.requestMetadata.callerIp
+test_scenarios:
+  true_positive: An attacker ('attacker@evil.com'), having impersonated 'privileged-sa@...',
+    uses those credentials to call 'SetIamPolicy' to make their own account a project
+    owner.
+  false_negative: An attacker uses an access key for a compromised service account
+    directly, without impersonation. The 'serviceAccountDelegationInfo' field would
+    be absent.
+  false_positive: A lead cloud engineer, following best practices, impersonates a
+    deployment service account to manually apply a hotfix to an IAM policy.
+  true_negative: A service account, acting on its own, modifies an IAM policy without
+    any impersonation involved.
+  log_source_schema: https://cloud.google.com/logging/docs/audit/gcp-audit-logs-v2
+  example_log_fields:
+    protoPayload.methodName: google.iam.v1.IAMPolicy.SetIamPolicy
+    protoPayload.authenticationInfo.principalEmail: attacker@evil.com
+    protoPayload.authenticationInfo.serviceAccountDelegationInfo: '{...}'

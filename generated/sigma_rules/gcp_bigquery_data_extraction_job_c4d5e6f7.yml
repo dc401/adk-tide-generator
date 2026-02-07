@@ -1,0 +1,52 @@
+title: GCP BigQuery Data Extraction Job
+id: c4d5e6f7-g8h9-41j2-k3l4-m5n6o7p8q9r0
+status: experimental
+description: Detects the creation of a BigQuery job to export data to a Cloud Storage
+  bucket. Adversaries may use this technique to exfiltrate large datasets. This rule
+  is a baseline and should be tuned by adding known legitimate principals or destination
+  bucket names to the filter.
+references:
+- https://attack.mitre.org/techniques/T1537/
+- https://cloud.google.com/bigquery/docs/exporting-data
+author: Automated Detection Agent
+date: '2024-07-29'
+modified: '2024-07-31'
+tags:
+- attack.exfiltration
+- attack.t1537
+logsource:
+  product: gcp
+  service: gcp.audit
+detection:
+  selection:
+    protoPayload.methodName: google.cloud.bigquery.v2.JobService.InsertJob
+    protoPayload.serviceData.jobInsertion.job.configuration.extract.destinationUris|contains: gs://
+  filter_legitimate:
+    protoPayload.authenticationInfo.principalEmail|endswith: '@gcp-sa-bigquery-datastransfer.iam.gserviceaccount.com'
+  condition: selection and not filter_legitimate
+falsepositives:
+- Legitimate ETL processes that export data to Cloud Storage for processing, backup,
+  or archival.
+- Data sharing with partners via approved Cloud Storage buckets.
+- This rule is prone to false positives and should be tuned by filtering for known-good
+  destination buckets or principal accounts.
+level: medium
+fields:
+- protoPayload.authenticationInfo.principalEmail
+- protoPayload.serviceData.jobInsertion.job.configuration.extract.sourceTable.projectId
+- protoPayload.serviceData.jobInsertion.job.configuration.extract.sourceTable.tableId
+- protoPayload.serviceData.jobInsertion.job.configuration.extract.destinationUris
+test_scenarios:
+  true_positive: An attacker uses compromised credentials to run a BigQuery export
+    job, sending a sensitive table to an external Cloud Storage bucket 'gs://attacker-bucket'.
+  false_negative: An attacker exfiltrates data row-by-row using the 'tabledata.list'
+    API, which is not a bulk export job.
+  false_positive: A nightly automated job run by 'prod-etl@my-project.iam.gserviceaccount.com'
+    exports analytics data to a 'gs://my-project-archive' bucket.
+  true_negative: A data analyst runs a SELECT query within the BigQuery console that
+    does not export any data.
+  log_source_schema: https://cloud.google.com/logging/docs/audit/gcp-audit-logs-v2
+  example_log_fields:
+    protoPayload.methodName: google.cloud.bigquery.v2.JobService.InsertJob
+    protoPayload.serviceData.jobInsertion.job.configuration.extract.destinationUris: gs://attacker-controlled-bucket/export.csv
+    protoPayload.authenticationInfo.principalEmail: compromised-user@example.com

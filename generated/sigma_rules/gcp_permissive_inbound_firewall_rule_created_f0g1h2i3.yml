@@ -1,0 +1,56 @@
+title: GCP Permissive Inbound Firewall Rule Created
+id: f0g1h2i3-j4k5-47m8-n9o0-p1q2r3s4t5u6
+status: stable
+description: Detects the creation or modification of a GCP Firewall Rule to allow
+  inbound traffic from any source on the internet (0.0.0.0/0). Adversaries create
+  such rules to open ports for C2, remote access, or to expose internal services.
+references:
+- https://attack.mitre.org/techniques/T1562/007/
+- https://cloud.google.com/vpc/docs/firewalls
+author: Automated Detection Agent
+date: '2024-07-29'
+modified: '2024-07-31'
+tags:
+- attack.defense_evasion
+- attack.t1562.007
+logsource:
+  product: gcp
+  service: gcp.audit
+detection:
+  selection:
+    protoPayload.methodName|endswith:
+    - compute.firewalls.insert
+    - compute.firewalls.patch
+    protoPayload.request.sourceRanges: 0.0.0.0/0
+  filter_legitimate:
+    protoPayload.request.allowed.ports:
+    - '80'
+    - '443'
+  condition: selection and not filter_legitimate
+falsepositives:
+- Legitimate creation of firewall rules for public-facing web servers or load balancers
+  on ports 80/443.
+- Setting up network appliances or services that require broad port access temporarily
+  for configuration.
+level: high
+fields:
+- protoPayload.authenticationInfo.principalEmail
+- resource.labels.project_id
+- protoPayload.resourceName
+- protoPayload.request.allowed.IPProtocol
+- protoPayload.request.allowed.ports
+test_scenarios:
+  true_positive: An attacker creates a firewall rule named 'allow-rdp' that allows
+    TCP traffic on port 3389 from source '0.0.0.0/0'.
+  false_negative: An attacker modifies a firewall rule to allow traffic only from
+    a specific IP range they control ('5.6.7.8/32') instead of the global '0.0.0.0/0'.
+  false_positive: A web administrator creates a firewall rule to allow traffic on
+    ports 80 and 443 from '0.0.0.0/0' for a new public website.
+  true_negative: A network administrator creates a firewall rule to allow SSH traffic
+    (port 22) between two internal VPC subnets.
+  log_source_schema: https://cloud.google.com/logging/docs/audit/gcp-audit-logs-v2
+  example_log_fields:
+    protoPayload.methodName: v1.compute.firewalls.insert
+    protoPayload.request.sourceRanges: 0.0.0.0/0
+    protoPayload.request.allowed.ports: '3389'
+    protoPayload.authenticationInfo.principalEmail: attacker@example.com
