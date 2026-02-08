@@ -1,0 +1,293 @@
+name: Master Pipeline - End-to-End Detection Engineering
+
+#master orchestration workflow that coordinates all pipeline stages in sequence
+#use this to run the full pipeline from CTI ingestion through production deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_generation:
+        description: 'Skip rule generation (use existing rules)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  id-token: write
+
+jobs:
+  stage-1-generate:
+    name: Stage 1 - Generate Detection Rules
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_generation }}
+    steps:
+      - name: Trigger Generation Workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('🚀 Starting Stage 1: Generate Detection Rules');
+
+            const result = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'generate-detections.yml',
+              ref: 'main'
+            });
+
+            console.log('✓ Generation workflow triggered');
+
+            //wait for workflow to start
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            //find the workflow run
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'generate-detections.yml',
+              per_page: 1
+            });
+
+            if (runs.data.workflow_runs.length === 0) {
+              throw new Error('Could not find workflow run');
+            }
+
+            const runId = runs.data.workflow_runs[0].id;
+            console.log(`Monitoring workflow run ${runId}...`);
+
+            //poll for completion
+            let completed = false;
+            let attempts = 0;
+            const maxAttempts = 60; //10 minutes max
+
+            while (!completed && attempts < maxAttempts) {
+              const run = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId
+              });
+
+              console.log(`Status: ${run.data.status} | Conclusion: ${run.data.conclusion || 'pending'}`);
+
+              if (run.data.status === 'completed') {
+                completed = true;
+                if (run.data.conclusion !== 'success') {
+                  throw new Error(`Stage 1 failed with conclusion: ${run.data.conclusion}`);
+                }
+                console.log('✅ Stage 1 completed successfully');
+              } else {
+                await new Promise(resolve => setTimeout(resolve, 10000)); //wait 10s
+                attempts++;
+              }
+            }
+
+            if (!completed) {
+              throw new Error('Stage 1 timed out after 10 minutes');
+            }
+
+  stage-2-test:
+    name: Stage 2 - Test Detection Rules
+    runs-on: ubuntu-latest
+    needs: [stage-1-generate]
+    if: ${{ always() && (needs.stage-1-generate.result == 'success' || inputs.skip_generation) }}
+    steps:
+      - name: Trigger Test Workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('🧪 Starting Stage 2: Test Detection Rules');
+
+            const result = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'test-detections.yml',
+              ref: 'main'
+            });
+
+            console.log('✓ Test workflow triggered');
+
+            //wait for workflow to start
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            //find the workflow run
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'test-detections.yml',
+              per_page: 1
+            });
+
+            if (runs.data.workflow_runs.length === 0) {
+              throw new Error('Could not find workflow run');
+            }
+
+            const runId = runs.data.workflow_runs[0].id;
+            console.log(`Monitoring workflow run ${runId}...`);
+
+            //poll for completion
+            let completed = false;
+            let attempts = 0;
+            const maxAttempts = 60; //10 minutes max
+
+            while (!completed && attempts < maxAttempts) {
+              const run = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId
+              });
+
+              console.log(`Status: ${run.data.status} | Conclusion: ${run.data.conclusion || 'pending'}`);
+
+              if (run.data.status === 'completed') {
+                completed = true;
+                if (run.data.conclusion !== 'success') {
+                  throw new Error(`Stage 2 failed with conclusion: ${run.data.conclusion}`);
+                }
+                console.log('✅ Stage 2 completed successfully');
+              } else {
+                await new Promise(resolve => setTimeout(resolve, 10000)); //wait 10s
+                attempts++;
+              }
+            }
+
+            if (!completed) {
+              throw new Error('Stage 2 timed out after 10 minutes');
+            }
+
+  stage-3-review:
+    name: Stage 3 - Create Human Review PR
+    runs-on: ubuntu-latest
+    needs: [stage-2-test]
+    if: ${{ always() && needs.stage-2-test.result == 'success' }}
+    outputs:
+      pr_number: ${{ steps.trigger.outputs.pr_number }}
+    steps:
+      - name: Trigger Review Workflow
+        id: trigger
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('👥 Starting Stage 3: Human Review PR Creation');
+
+            const result = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'human-review.yml',
+              ref: 'main'
+            });
+
+            console.log('✓ Review workflow triggered');
+
+            //wait for workflow to start
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            //find the workflow run
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'human-review.yml',
+              per_page: 1
+            });
+
+            if (runs.data.workflow_runs.length === 0) {
+              throw new Error('Could not find workflow run');
+            }
+
+            const runId = runs.data.workflow_runs[0].id;
+            console.log(`Monitoring workflow run ${runId}...`);
+
+            //poll for completion
+            let completed = false;
+            let attempts = 0;
+            const maxAttempts = 30; //5 minutes max
+
+            while (!completed && attempts < maxAttempts) {
+              const run = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId
+              });
+
+              console.log(`Status: ${run.data.status} | Conclusion: ${run.data.conclusion || 'pending'}`);
+
+              if (run.data.status === 'completed') {
+                completed = true;
+                if (run.data.conclusion !== 'success') {
+                  throw new Error(`Stage 3 failed with conclusion: ${run.data.conclusion}`);
+                }
+                console.log('✅ Stage 3 completed successfully');
+              } else {
+                await new Promise(resolve => setTimeout(resolve, 10000)); //wait 10s
+                attempts++;
+              }
+            }
+
+            if (!completed) {
+              throw new Error('Stage 3 timed out after 5 minutes');
+            }
+
+            //find the PR created by the workflow
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'created',
+              direction: 'desc',
+              per_page: 1
+            });
+
+            if (prs.data.length > 0 && prs.data[0].title.includes('Detection Rules Review')) {
+              const prNumber = prs.data[0].number;
+              console.log(`✓ Found PR #${prNumber}`);
+              core.setOutput('pr_number', prNumber);
+            } else {
+              console.log('⚠️  PR may need to be created manually');
+            }
+
+  pipeline-summary:
+    name: Pipeline Execution Summary
+    runs-on: ubuntu-latest
+    needs: [stage-1-generate, stage-2-test, stage-3-review]
+    if: always()
+    steps:
+      - name: Generate Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const stage1 = '${{ needs.stage-1-generate.result }}';
+            const stage2 = '${{ needs.stage-2-test.result }}';
+            const stage3 = '${{ needs.stage-3-review.result }}';
+            const prNumber = '${{ needs.stage-3-review.outputs.pr_number }}';
+
+            console.log('');
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('        DETECTION ENGINEERING PIPELINE SUMMARY         ');
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('');
+            console.log(`Stage 1 (Generate): ${stage1 === 'skipped' ? 'SKIPPED' : stage1.toUpperCase()}`);
+            console.log(`Stage 2 (Test):     ${stage2.toUpperCase()}`);
+            console.log(`Stage 3 (Review):   ${stage3.toUpperCase()}`);
+            console.log('');
+
+            if (stage3 === 'success' && prNumber) {
+              console.log(`✅ Pipeline completed successfully!`);
+              console.log(`   Review PR: https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`);
+              console.log('');
+              console.log('Next steps:');
+              console.log('  1. Review the PR for detection quality');
+              console.log('  2. Verify MITRE ATT&CK mappings');
+              console.log('  3. Check test coverage (TP/FN/FP/TN)');
+              console.log('  4. Merge PR to deploy to production');
+            } else if (stage1 === 'failure' || stage2 === 'failure' || stage3 === 'failure') {
+              console.log('❌ Pipeline failed at one or more stages');
+              console.log('   Check workflow logs for details');
+            } else {
+              console.log('⚠️  Pipeline completed with warnings');
+              console.log('   Manual intervention may be required');
+            }
+            console.log('');
+            console.log('═══════════════════════════════════════════════════════');
