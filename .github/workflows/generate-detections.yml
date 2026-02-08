@@ -1,6 +1,6 @@
 name: Generate Detection Rules from CTI
 
-#generate Sigma rules and test payloads from CTI sources
+#generate Elasticsearch Detection Rules and test payloads from CTI sources
 #runs agent in GitHub Actions environment
 
 on:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   generate-rules:
-    name: Generate Sigma Rules from CTI
+    name: Generate Elasticsearch Detection Rules from CTI
     runs-on: ubuntu-latest
     timeout-minutes: 60  #increased for larger CTI files with more indicators
 
@@ -106,124 +106,61 @@ jobs:
           GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
           GOOGLE_GENAI_USE_VERTEXAI: 'true'
         run: |
-          echo "Starting detection rule generation from CTI sources..."
+          echo "Starting Elasticsearch detection rule generation from CTI sources..."
 
-          #use iterative mode for best quality
           python run_agent.py \
-            --iterative \
             --cti-folder cti_src \
             --output generated \
-            --max-retries 3
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --location global
 
       - name: Verify Generated Rules
         run: |
           echo "Checking generated artifacts..."
 
-          #count sigma rules
-          if [ -d "generated/sigma_rules" ]; then
-            RULE_COUNT=$(find generated/sigma_rules -name "*.yml" | wc -l)
-            echo "Generated Sigma rules: $RULE_COUNT"
-            ls -lh generated/sigma_rules/
+          #count detection rules
+          if [ -d "generated/detection_rules" ]; then
+            RULE_COUNT=$(find generated/detection_rules -name "*.json" | wc -l)
+            echo "Generated detection rules: $RULE_COUNT"
+            ls -lh generated/detection_rules/
           else
-            echo "WARNING: No sigma_rules directory found"
+            echo "WARNING: No detection_rules directory found"
             RULE_COUNT=0
           fi
 
-          #count test payloads
-          if [ -d "generated/tests" ]; then
-            TEST_COUNT=$(find generated/tests -name "*.json" | wc -l)
-            echo "Generated test payloads: $TEST_COUNT"
-            ls -lh generated/tests/
+          #count test cases (embedded in rule JSON)
+          if [ -f "generated/cti_context.json" ]; then
+            echo "✓ CTI context saved"
+            ls -lh generated/cti_context.json
           else
-            echo "WARNING: No tests directory found"
-            TEST_COUNT=0
+            echo "WARNING: No cti_context.json found"
           fi
 
           #require at least some output
           if [ "$RULE_COUNT" -eq 0 ]; then
-            echo "ERROR: No Sigma rules were generated"
+            echo "ERROR: No detection rules were generated"
             exit 1
           fi
 
-      - name: Static LLM Judge Pre-Filter
-        env:
-          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
-        run: |
-          echo "Running static quality evaluation..."
-
-          #backup all generated rules
-          mkdir -p generated/all_rules_backup
-          cp -r generated/sigma_rules/* generated/all_rules_backup/ 2>/dev/null || true
-          cp -r generated/tests/* generated/all_rules_backup/ 2>/dev/null || true
-
-          #run static LLM judge
-          python scripts/static_llm_judge.py \
-            --rules generated/sigma_rules \
-            --tests generated/tests \
-            --output generated/STATIC_QUALITY_REPORT.json \
-            --filter-output generated/sigma_rules_filtered \
-            --threshold 0.65 \
-            --project ${{ secrets.GCP_PROJECT_ID }} \
-            --location ${{ secrets.GOOGLE_CLOUD_LOCATION }}
-
-      - name: Filter Passing Rules
-        id: filter
-        run: |
-          #check if any rules passed
-          if [ ! -d "generated/sigma_rules_filtered" ] || [ -z "$(ls -A generated/sigma_rules_filtered 2>/dev/null)" ]; then
-            echo "⚠️  No rules passed static quality threshold"
-            echo "All rules rejected by LLM judge"
-            echo "passing_count=0" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          #replace sigma_rules with filtered version
-          rm -rf generated/sigma_rules
-          mv generated/sigma_rules_filtered generated/sigma_rules
-
-          PASSING_COUNT=$(find generated/sigma_rules -name "*.yml" 2>/dev/null | wc -l)
-          echo "✅ $PASSING_COUNT rules passed static quality gate"
-          echo "passing_count=$PASSING_COUNT" >> $GITHUB_OUTPUT
-
-          #filter tests to match passing rules only
-          if [ -f "generated/PASSING_RULE_IDS.json" ]; then
-            echo "Filtering test payloads for passing rules..."
-            python3 scripts/filter_test_payloads.py
-          fi
-
-          #cleanup backup folder (no longer needed)
-          rm -rf generated/all_rules_backup
-          echo "✓ Cleaned up rejected rules backup"
-
-      - name: Commit Passing Rules
-        if: steps.filter.outputs.passing_count > 0
+      - name: Commit Generated Rules
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          #commit passing rules + quality report
-          git add generated/sigma_rules/
-
-          #add tests only if directory exists
-          if [ -d "generated/tests" ]; then
-            git add generated/tests/
-            echo "✓ Added test payloads"
-          else
-            echo "⚠️  No test payloads to commit (tests directory not generated)"
-          fi
-
-          git add generated/STATIC_QUALITY_REPORT.json 2>/dev/null || true
-          git add generated/PASSING_RULE_IDS.json 2>/dev/null || true
+          #commit generated detection rules
+          git add generated/detection_rules/ 2>/dev/null || true
+          git add generated/cti_context.json 2>/dev/null || true
 
           #check if there are changes
           if git diff --staged --quiet; then
             echo "No changes to commit"
+            echo "rule_count=0" >> $GITHUB_OUTPUT
           else
-            PASSING_COUNT="${{ steps.filter.outputs.passing_count }}"
-            TEST_COUNT=$(find generated/tests -name "*.json" 2>/dev/null | wc -l || echo 0)
+            RULE_COUNT=$(find generated/detection_rules -name "*.json" 2>/dev/null | wc -l || echo 0)
+            echo "rule_count=$RULE_COUNT" >> $GITHUB_OUTPUT
 
-            git commit -m "ci: $PASSING_COUNT rules passed static LLM judge (threshold 0.65) [skip ci]"
+            git commit -m "ci: generated $RULE_COUNT detection rules from CTI [skip ci]"
 
             #pull and rebase in case remote was updated during workflow run
             git pull --rebase || true
@@ -231,12 +168,14 @@ jobs:
             git push
           fi
 
-      - name: Upload Session Results
+      - name: Upload Generated Rules
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: generation-session-results
-          path: generated/iterative_session_*.json
+          name: detection-rules
+          path: |
+            generated/detection_rules/
+            generated/cti_context.json
           retention-days: 30
 
       - name: Summary
@@ -246,9 +185,12 @@ jobs:
           echo "✓ Detection Generation Complete"
           echo "================================"
           echo ""
+          RULE_COUNT="${{ steps.commit.outputs.rule_count }}"
+          echo "Generated $RULE_COUNT Elasticsearch Detection Rules"
+          echo ""
           echo "Next steps:"
-          echo "  1. Integration tests will run automatically"
-          echo "  2. LLM judge will evaluate quality"
-          echo "  3. Review results in PR or workflow artifacts"
+          echo "  1. Create integration test script"
+          echo "  2. Add refinement loop (2-3 iterations)"
+          echo "  3. Build deployment workflow"
           echo ""
           echo "Generated artifacts committed to generated/"
