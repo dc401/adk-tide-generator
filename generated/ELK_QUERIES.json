@@ -1,1 +1,41 @@
-{}
+{
+  "f5a2b1c3-6d9e-4a7b-8b1c-9d8e7f6a5b4c": {
+    "rule_title": "Akira Ransom Note Creation",
+    "lucene_query": "event.code:11 AND file.name:akira_readme.txt",
+    "dsl_query": {
+      "query": {
+        "query_string": {
+          "query": "event.code:11 AND file.name:akira_readme.txt"
+        }
+      }
+    },
+    "validation_score": 0.97,
+    "validated": true
+  },
+  "e8d9c0a1-7b6c-4f5d-8a4b-3c2d1e0f9a8b": {
+    "rule_title": "Akira File Encryption Extension Detected",
+    "lucene_query": "(event.code:11 AND file.name:*.akira*) AND (NOT (process.executable:(*explorer.exe* OR *unzip.exe* OR *7z.exe*)))",
+    "dsl_query": {
+      "query": {
+        "query_string": {
+          "query": "(event.code:11 AND file.name:*.akira*) AND (NOT (process.executable:(*explorer.exe* OR *unzip.exe* OR *7z.exe*)))"
+        }
+      }
+    },
+    "validation_score": 0.825,
+    "validated": true
+  },
+  "f0e1d2c3-b4a5-46c7-88d9-e0f1a2b3c4d5": {
+    "rule_title": "Akira Ransomware Note Creation",
+    "lucene_query": "file.name:akira_readme.txt",
+    "dsl_query": {
+      "query": {
+        "query_string": {
+          "query": "file.name:akira_readme.txt"
+        }
+      }
+    },
+    "validation_score": 0.95,
+    "validated": true
+  }
+}
