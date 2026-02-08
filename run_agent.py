@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from detection_agent.agent import run_detection_agent
+from detection_agent.refinement import run_with_refinement
 
 def parse_args():
     """parse command line arguments"""
@@ -81,6 +82,19 @@ workflow:
         type=str,
         default='global',
         help='GCP region for Vertex AI (default: global)'
+    )
+
+    parser.add_argument(
+        '--no-refinement',
+        action='store_true',
+        help='Disable self-healing refinement loop (single attempt only)'
+    )
+
+    parser.add_argument(
+        '--max-iterations',
+        type=int,
+        default=3,
+        help='Maximum refinement iterations if zero rules pass (default: 3)'
     )
 
     return parser.parse_args()
@@ -182,12 +196,24 @@ async def interactive_mode(args):
     print("Running Detection Agent Pipeline...")
     print("="*80)
 
-    result = await run_detection_agent(
-        cti_dir=Path(args.cti_folder),
-        output_dir=Path(args.output),
-        project_id=project_id,
-        location=args.location
-    )
+    #use refinement loop by default
+    if args.no_refinement:
+        print("⚠ Refinement disabled - single attempt only")
+        result = await run_detection_agent(
+            cti_dir=Path(args.cti_folder),
+            output_dir=Path(args.output),
+            project_id=project_id,
+            location=args.location
+        )
+    else:
+        print(f"Using self-healing refinement (max {args.max_iterations} iterations)")
+        result = await run_with_refinement(
+            cti_dir=Path(args.cti_folder),
+            output_dir=Path(args.output),
+            project_id=project_id,
+            location=args.location,
+            max_iterations=args.max_iterations
+        )
 
     if result and result.get('rules_generated'):
         print("\n" + "="*80)
@@ -225,12 +251,22 @@ async def main():
         print("Set via --project flag or GOOGLE_CLOUD_PROJECT env var")
         sys.exit(1)
 
-    result = await run_detection_agent(
-        cti_dir=Path(args.cti_folder),
-        output_dir=Path(args.output),
-        project_id=project_id,
-        location=args.location
-    )
+    #use refinement loop by default
+    if args.no_refinement:
+        result = await run_detection_agent(
+            cti_dir=Path(args.cti_folder),
+            output_dir=Path(args.output),
+            project_id=project_id,
+            location=args.location
+        )
+    else:
+        result = await run_with_refinement(
+            cti_dir=Path(args.cti_folder),
+            output_dir=Path(args.output),
+            project_id=project_id,
+            location=args.location,
+            max_iterations=args.max_iterations
+        )
 
     if result and result.get('rules_generated'):
         print(f"\n✓ Success! Generated {result['rules_generated']} rules")
