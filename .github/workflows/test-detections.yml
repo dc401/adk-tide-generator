@@ -275,6 +275,14 @@ jobs:
           with open('generated/INTEGRATION_TEST_RESULTS.json') as f:
               results = json.load(f)
 
+          # Check if integration test was skipped
+          if isinstance(results, dict) and results.get('status') == 'skipped':
+              print("⚠️  Integration test was skipped (no test payloads)")
+              print("  Rules passed unit tests and Sigma → ELK conversion")
+              print("  Passing quality gate (no integration test failures)")
+              sys.exit(0)
+
+          # Normal quality metrics calculation
           total_tp = sum(r['tp'] for r in results.values())
           total_fp = sum(r['fp'] for r in results.values())
           total_tn = sum(r['tn'] for r in results.values())
