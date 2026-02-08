@@ -251,7 +251,9 @@ async def run_detection_agent(cti_dir: Path, output_dir: Path, project_id: str, 
     rules_dir.mkdir(parents=True, exist_ok=True)
 
     for rule in validated_rules:
-        rule_file = rules_dir / f"{rule.name.lower().replace(' ', '_')}.json"
+        #sanitize filename: remove invalid chars
+        safe_name = rule.name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
+        rule_file = rules_dir / f"{safe_name}.json"
         with open(rule_file, 'w') as f:
             json.dump(rule.model_dump(), f, indent=2)
         print(f"  ✓ Saved: {rule_file.name}")
