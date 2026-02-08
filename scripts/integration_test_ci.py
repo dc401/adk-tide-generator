@@ -82,6 +82,22 @@ def convert_sigma_to_elasticsearch(rules_dir: Path) -> Dict:
     print(f"  ✓ Converted {len(queries)} Sigma rules")
     return queries
 
+def normalize_text_fields(data):
+    """normalize text fields to lowercase for case-insensitive matching"""
+    if isinstance(data, dict):
+        normalized = {}
+        for key, value in data.items():
+            #lowercase common text fields
+            if key in ['name', 'executable', 'command_line'] and isinstance(value, str):
+                normalized[key] = value.lower()
+            else:
+                normalized[key] = normalize_text_fields(value)
+        return normalized
+    elif isinstance(data, list):
+        return [normalize_text_fields(item) for item in data]
+    else:
+        return data
+
 def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
     """ingest test payloads into Elasticsearch"""
     print("\n[3/5] Ingesting test payloads...")
@@ -129,8 +145,11 @@ def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
             field_sample = list(log_entry.keys())[:5] if isinstance(log_entry, dict) else []
             print(f"    • {payload_file.stem}: fields={field_sample}")
 
+            #normalize text fields to lowercase for case-insensitive matching
+            normalized_entry = normalize_text_fields(log_entry)
+
             #ingest ONLY log_entry to elasticsearch (not wrapper)
-            es.index(index=index_name, id=doc_id, document=log_entry)
+            es.index(index=index_name, id=doc_id, document=normalized_entry)
 
             payload_map[rule_dir.name].append({
                 'id': doc_id,
@@ -183,8 +202,7 @@ def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "t
                 "query_string": {
                     "query": rule_info['query'],
                     "default_field": "*",
-                    "analyze_wildcard": True,
-                    "case_insensitive": True
+                    "analyze_wildcard": True
                 }
             },
             "size": 100
@@ -205,7 +223,7 @@ def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "t
                     debug_query = f"{first_field}:*"
                     debug_resp = es.search(
                         index=index_name,
-                        query={"query_string": {"query": debug_query, "default_field": "*", "case_insensitive": True}},
+                        query={"query_string": {"query": debug_query, "default_field": "*"}},
                         size=5
                     )
                     print(f"      Debug: '{debug_query}' matches {debug_resp['hits']['total']['value']} docs")
