@@ -1,0 +1,53 @@
+title: Akira Ransomware Note Creation
+id: f8a0b3c1-1e9d-4c5b-9a8f-2e3d7a6b4c10
+status: stable
+description: Detects the creation of the 'akira_readme.txt' ransom note file. The
+  creation of this specific file is a definitive, high-confidence indicator of compromise
+  by the Akira ransomware.
+references:
+- https://attack.mitre.org/techniques/T1486/
+author: Automated Detection Agent
+date: '2024-07-16'
+modified: '2024-07-18'
+tags:
+- attack.impact
+- attack.t1486
+logsource:
+  product: windows
+  service: sysmon
+  category: file_event
+detection:
+  selection:
+    EventID: 11
+    TargetFilename|endswith: \akira_readme.txt
+  filter_legitimate:
+    Image|endswith:
+    - \procexp64.exe
+    - \procmon.exe
+    - \notepad.exe
+    - \explorer.exe
+  condition: selection and not filter_legitimate
+falsepositives:
+- A security researcher or analyst intentionally creating the file for testing detection
+  capabilities or on a honeypot. Such activity should be filtered by user or source
+  host if known.
+- A user accidentally naming a file 'akira_readme.txt'.
+level: critical
+fields:
+- ComputerName
+- User
+- Image
+- TargetFilename
+test_scenarios:
+  true_positive: The Akira ransomware payload creates `C:\Users\victim\Documents\akira_readme.txt`
+    after encrypting files in that directory.
+  false_negative: A new variant of the ransomware uses a different ransom note name,
+    such as `READ_ME_AKIRA.txt`.
+  false_positive: A threat hunter creates a file named `C:\Users\threat_hunter\Desktop\akira_readme.txt`
+    to test if an alert is triggered.
+  true_negative: A user creates a file named `readme.txt` in their documents folder.
+  log_source_schema: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon#event-id-11-filecreate
+  example_log_fields:
+    EventID: '11'
+    Image: C:\Windows\Temp\malicious.exe
+    TargetFilename: C:\Users\Public\Desktop\akira_readme.txt
