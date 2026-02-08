@@ -1,0 +1,14 @@
+{
+  "payload_type": "TP",
+  "description": "Detects bcdedit being used to disable automatic recovery, hindering system repair efforts post-attack.",
+  "log_entry": {
+    "EventID": 1,
+    "ParentImage": "C:\\Windows\\System32\\powershell.exe",
+    "Image": "C:\\Windows\\System32\\bcdedit.exe",
+    "CommandLine": "bcdedit /set {default} recoveryenabled no",
+    "User": "NT AUTHORITY\\SYSTEM",
+    "ComputerName": "DC01.corp.local"
+  },
+  "expected_alert": true,
+  "timestamp": "2024-08-01T14:32:10.789Z"
+}

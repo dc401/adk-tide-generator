@@ -1,0 +1,15 @@
+{
+  "payload_type": "TN",
+  "description": "A standard network diagnostic command is run by an administrator, which is completely unrelated to shadow copies.",
+  "log_entry": {
+    "EventID": 1,
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "Image": "C:\\Windows\\System32\\ping.exe",
+    "CommandLine": "ping.exe 8.8.8.8",
+    "User": "CORP\\helpdesk",
+    "ComputerName": "WS-USER12.corp.local"
+  },
+  "expected_alert": false,
+  "legitimate_scenario": "Helpdesk staff checking network connectivity on a user's workstation.",
+  "timestamp": "2024-08-01T17:10:45.888Z"
+}

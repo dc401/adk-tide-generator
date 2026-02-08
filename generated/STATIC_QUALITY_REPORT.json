@@ -1,0 +1,130 @@
+{
+  "timestamp": "2026-02-08T02:03:13.132238",
+  "threshold": 0.65,
+  "summary": {
+    "total_rules_evaluated": 4,
+    "deployment_breakdown": {
+      "APPROVE": 0,
+      "CONDITIONAL": 3,
+      "REJECT": 1
+    },
+    "avg_quality_score": 0.78,
+    "rules_passing_threshold": 3,
+    "assessment": "0 rules approved, 3 conditional, 1 rejected"
+  },
+  "evaluations": [
+    {
+      "rule_id": "c1a7b8d9-0f1e-4d2c-8a3b-4e5f6a7b8c9d",
+      "rule_title": "Akira Ransomware: Ransom Note Creation",
+      "ttp_alignment_score": 1.0,
+      "detection_logic_score": 0.9,
+      "false_positive_risk": "MEDIUM",
+      "test_coverage_score": 0.9,
+      "deployment_readiness_score": 0.8,
+      "overall_quality_score": 0.9,
+      "deployment_decision": "CONDITIONAL",
+      "strengths": [
+        "The detection is based on a high-fidelity indicator of compromise (IOC) specific to the Akira ransomware.",
+        "The use of `endswith` for the `TargetFilename` provides robust detection regardless of the directory where the ransom note is created.",
+        "The rule includes a well-considered filter (`filter_legitimate`) that proactively addresses the most common false positive scenario: analysts and researchers handling the file.",
+        "The mapped TTP (T1486) is perfectly aligned with the activity of creating a ransom note as part of an encryption for impact attack."
+      ],
+      "weaknesses": [
+        "The rule is inherently brittle and will fail if a future Akira variant uses a different ransom note name.",
+        "The `filter_legitimate` list, while good, is not exhaustive. False positives may still occur if analysts use tools not on the list (e.g., `curl.exe`, `wget.exe`, other text editors) to handle the ransom note file."
+      ],
+      "recommendations": [
+        "Deploy in a monitoring or audit-only mode initially to baseline potential false positives and identify any additional legitimate processes that should be added to the filter list based on your environment's tools.",
+        "Expand the `filter_legitimate` list to include other common browsers, text editors, and command-line tools (like `curl.exe`, `wget.exe`, `sublime_text.exe`) used by security teams and developers.",
+        "Supplement this high-fidelity but narrow rule with broader, behavior-based ransomware detections (e.g., mass file renaming, high-volume file modification, shadow copy deletion) for more resilient coverage."
+      ],
+      "rule_file": "akira_ransomware_ransom_note_creation_c1a7b8d9.yml"
+    },
+    {
+      "rule_id": "b8e4f2a0-1c7d-4b9e-8a6f-3d1b9e5c4a3b",
+      "rule_title": "Akira Ransomware: Critical Service Stop",
+      "ttp_alignment_score": 0.9,
+      "detection_logic_score": 0.3,
+      "false_positive_risk": "HIGH",
+      "test_coverage_score": 0.9,
+      "deployment_readiness_score": 0.1,
+      "overall_quality_score": 0.44,
+      "deployment_decision": "REJECT",
+      "strengths": [
+        "Excellent TTP alignment with MITRE T1489 (Service Stop), targeting the correct native Windows utilities.",
+        "The use of `net.exe`, `sc.exe`, and `taskkill.exe` provides good coverage for common command-line based service/process termination techniques.",
+        "Test scenarios are very well-defined, correctly identifying a key false negative (PowerShell) and a common false positive case."
+      ],
+      "weaknesses": [
+        "CRITICAL FLAW: The `condition` references a `keywords` block (`any of keywords.*`) that is not defined in the detection section, making the rule syntactically invalid and non-functional.",
+        "CRITICAL FLAW: The rule lacks the essential logic to focus on 'critical' services as described. Without a keyword list of target services (e.g., 'Veeam', 'SQL', 'backup'), the rule is extremely broad.",
+        "The `taskkill` selection is overly generic (`/f /im`), as force-killing processes by image name is a very common administrative and automated task, leading to a high volume of false positives.",
+        "The filter for legitimate parent processes is minimal and can be easily bypassed by an attacker running the commands from a standard `cmd.exe` or `powershell.exe` prompt.",
+        "The detection does not cover equivalent PowerShell cmdlets like `Stop-Service` or `Set-Service`, which is a significant visibility gap."
+      ],
+      "recommendations": [
+        "Fix the critical syntax error in the `condition`. It must only reference blocks defined within the `detection` section.",
+        "Create a new detection block, e.g., `target_keywords`, and populate it with strings found in critical backup, database, and security service names (e.g., 'Veeam', 'BackupExec', 'sql', 'vss', 'Sophos', 'mepocs').",
+        "Modify the `condition` to be `(1 of selection) and target_keywords and not filter_legitimate`. This will correctly focus the detection on the intended targets.",
+        "Consider creating a separate, more targeted rule for `taskkill` to avoid the high FP rate, or add keywords to it that match critical process names rather than just services.",
+        "Develop a companion rule that monitors for PowerShell execution of `Stop-Service` and `Set-Service` targeting the same critical services, using PowerShell Script Block Logging (Event ID 4104)."
+      ],
+      "rule_file": "akira_ransomware_critical_service_stop_b8e4f2a0.yml"
+    },
+    {
+      "rule_id": "d4e6f1a8-3b9c-4d5e-9f0a-1b2c3d4e5f6a",
+      "rule_title": "Akira Ransomware: File Encryption Activity",
+      "ttp_alignment_score": 1.0,
+      "detection_logic_score": 0.9,
+      "false_positive_risk": "MEDIUM",
+      "test_coverage_score": 0.95,
+      "deployment_readiness_score": 0.8,
+      "overall_quality_score": 0.91,
+      "deployment_decision": "CONDITIONAL",
+      "strengths": [
+        "The detection logic is highly specific, as the '.akira' extension is uniquely associated with the Akira ransomware family.",
+        "The rule perfectly aligns with MITRE TTP T1486 by detecting the direct artifact of data encryption for impact.",
+        "It proactively includes a filter to suppress common applications used by analysts (browsers, text editors), showing an understanding of potential false positive sources.",
+        "The test scenarios are comprehensive, clearly defining a true positive, a realistic false positive from analyst activity, and a key false negative (extension change)."
+      ],
+      "weaknesses": [
+        "The rule's effectiveness is entirely dependent on a static file extension, making it brittle and ineffective if the ransomware variant uses a different extension.",
+        "The filter for legitimate processes, while a good start, is incomplete. It can still generate false positives from analysts using other tools (e.g., curl, wget, other browsers) to handle samples.",
+        "The rule description correctly notes that it's best with aggregation, implying that as a standalone alert, it is prone to noise from single-file events."
+      ],
+      "recommendations": [
+        "Deploy this rule with a mandatory aggregation condition in the SIEM (e.g., alert if >10 matching events occur from the same host or process within 1 minute) to focus on mass encryption and reduce single-event noise.",
+        "Customize and expand the `filter_legitimate` list to include other processes commonly used for file analysis or downloads within your environment.",
+        "Do not rely on this rule as the sole detection for ransomware. It should be part of a defense-in-depth strategy that includes behavioral rules (e.g., shadow copy deletion, mass file modification)."
+      ],
+      "rule_file": "akira_ransomware_file_encryption_activity_d4e6f1a8.yml"
+    },
+    {
+      "rule_id": "e4f8a1f6-9c4c-4a16-834c-6a7e283b5f9e",
+      "rule_title": "Akira Ransomware: Shadow Copy Deletion",
+      "ttp_alignment_score": 1.0,
+      "detection_logic_score": 0.85,
+      "false_positive_risk": "MEDIUM",
+      "test_coverage_score": 0.8,
+      "deployment_readiness_score": 0.85,
+      "overall_quality_score": 0.88,
+      "deployment_decision": "CONDITIONAL",
+      "strengths": [
+        "The rule targets four distinct and high-fidelity command-line patterns used for inhibiting system recovery (`vssadmin`, `wmic`, `bcdedit`).",
+        "Detection logic uses robust field modifiers (`Image|endswith`, `CommandLine|contains|all`) which reduces evasion opportunities and false positives.",
+        "Excellent TTP alignment with T1490 (Inhibit System Recovery), a critical precursor to ransomware deployment."
+      ],
+      "weaknesses": [
+        "The `filter_legitimate` condition (`CommandLine|contains: 'list shadows'`) is redundant. The selection logic already requires the `delete` keyword, so a command like `vssadmin list shadows` would never trigger the rule in the first place. This indicates a minor logic flaw.",
+        "The 'false_positive' test scenario is poorly chosen, as the example command (`vssadmin.exe list shadows`) would not be detected by the rule's selection criteria, and therefore isn't a true false positive that the filter prevents.",
+        "The rule is limited to specific command-line utilities and does not cover equivalent PowerShell cmdlets (e.g., `Remove-ComputerRestorePoint`) or direct WMI/API calls, as correctly noted in the 'false_negative' scenario."
+      ],
+      "recommendations": [
+        "Remove the `filter_legitimate` block and the corresponding `and not filter_legitimate` from the condition to simplify the rule and eliminate the redundant logic.",
+        "Deploy the rule in a 'monitor-only' or 'log-only' mode initially to baseline its behavior against legitimate backup software or system administration scripts which may perform these actions.",
+        "Consider creating a companion rule that focuses on PowerShell-based detection for T1490 to provide layered coverage."
+      ],
+      "rule_file": "akira_ransomware_shadow_copy_deletion_e4f8a1f6.yml"
+    }
+  ]
+}

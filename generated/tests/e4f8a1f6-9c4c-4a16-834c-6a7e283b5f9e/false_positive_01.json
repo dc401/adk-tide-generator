@@ -1,0 +1,15 @@
+{
+  "payload_type": "FP",
+  "description": "Administrator lists shadow copies. Alert is not generated because the command is missing the 'delete' keyword required by the selection logic.",
+  "log_entry": {
+    "EventID": 1,
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "Image": "C:\\Windows\\System32\\vssadmin.exe",
+    "CommandLine": "vssadmin.exe list shadows /for=C:",
+    "User": "CORP\\sysadmin",
+    "ComputerName": "DC01.corp.local"
+  },
+  "expected_alert": false,
+  "legitimate_scenario": "A system administrator is performing a routine check of available volume shadow copies on a specific drive.",
+  "timestamp": "2024-08-01T16:05:25.333Z"
+}

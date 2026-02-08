@@ -1,0 +1,14 @@
+{
+  "payload_type": "TP",
+  "description": "Detects bcdedit used to ignore boot failures, ensuring the system boots even if critical services are damaged.",
+  "log_entry": {
+    "EventID": 1,
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "Image": "C:\\Windows\\System32\\bcdedit.exe",
+    "CommandLine": "bcdedit.exe /set {current} bootstatuspolicy ignoreallfailures",
+    "User": "NT AUTHORITY\\SYSTEM",
+    "ComputerName": "EXCHANGE-SRV.corp.local"
+  },
+  "expected_alert": true,
+  "timestamp": "2024-08-01T14:33:15.991Z"
+}

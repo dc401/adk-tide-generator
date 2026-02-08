@@ -1,0 +1,14 @@
+{
+  "payload_type": "TP",
+  "description": "Detects vssadmin deleting all shadow copies, executed from a ransomware payload. Uses lowercase and a Windows Security Event ID.",
+  "log_entry": {
+    "EventID": 4688,
+    "ParentImage": "C:\\Users\\victim\\AppData\\Local\\Temp\\akira.exe",
+    "Image": "C:\\Windows\\System32\\vssadmin.exe",
+    "CommandLine": "vssadmin.exe delete shadows /all /quiet",
+    "User": "NT AUTHORITY\\SYSTEM",
+    "ComputerName": "FILESRV-01.corp.local"
+  },
+  "expected_alert": true,
+  "timestamp": "2024-08-01T14:30:15.123Z"
+}

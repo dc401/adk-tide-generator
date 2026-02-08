@@ -1,0 +1,15 @@
+{
+  "payload_type": "FN",
+  "description": "Attacker uses a native PowerShell cmdlet to remove shadow copies, bypassing detection of vssadmin.exe or wmic.exe process execution.",
+  "log_entry": {
+    "EventID": 1,
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "CommandLine": "powershell.exe Get-ComputerRestorePoint | Remove-ComputerRestorePoint -Confirm:$false",
+    "User": "CORP\\attacker_user",
+    "ComputerName": "WS-VICTIM.corp.local"
+  },
+  "expected_alert": false,
+  "evasion_technique": "Living off the Land with PowerShell cmdlets that do not call the monitored executables.",
+  "timestamp": "2024-08-01T15:00:11.912Z"
+}

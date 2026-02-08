@@ -1,0 +1,56 @@
+title: 'Akira Ransomware: Ransom Note Creation'
+id: c1a7b8d9-0f1e-4d2c-8a3b-4e5f6a7b8c9d
+status: experimental
+description: Detects the creation of the 'akira_readme.txt' ransom note file. This
+  is a high-fidelity indicator of an active Akira ransomware infection.
+references:
+- https://attack.mitre.org/techniques/T1486/
+- https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-353a
+author: Automated Detection Agent
+date: '2024-07-31'
+modified: '2024-08-01'
+tags:
+- attack.impact
+- attack.t1486
+logsource:
+  product: windows
+  service: file_creation
+  category: file_creation
+detection:
+  selection:
+    TargetFilename|endswith: \akira_readme.txt
+  filter_legitimate:
+    Image|endswith:
+    - \explorer.exe
+    - \chrome.exe
+    - \firefox.exe
+    - \msedge.exe
+    - \powershell_ise.exe
+    - \Code.exe
+    - \notepad.exe
+    - \notepad++.exe
+  condition: selection and not filter_legitimate
+falsepositives:
+- A security analyst or user downloading or saving a copy of the ransom note for analysis.
+- An unlikely scenario where a legitimate file is created with the same name.
+level: critical
+fields:
+- ComputerName
+- User
+- Image
+- TargetFilename
+test_scenarios:
+  true_positive: The Akira ransomware payload creates C:\Users\victim\Documents\akira_readme.txt
+    after encrypting files.
+  false_negative: A future variant of Akira uses a different ransom note name, such
+    as 'AKIRA-HELP.txt'.
+  false_positive: A threat intelligence analyst saves a copy of 'akira_readme.txt'
+    from a report to their desktop using Google Chrome.
+  true_negative: A user creates a new text file named 'shopping_list.txt' in their
+    Documents folder.
+  log_source_schema: https://github.com/SigmaHQ/sigma/wiki/Log-Sources#file-creation
+  example_log_fields:
+    EventID: '11'
+    Image: C:\Users\victim\AppData\Local\Temp\malicious.exe
+    TargetFilename: C:\Users\victim\Documents\akira_readme.txt
+    User: CORP\victim

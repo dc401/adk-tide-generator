@@ -1,0 +1,14 @@
+{
+  "payload_type": "TP",
+  "description": "Detects wmic command to delete shadow copies non-interactively, a known adversary technique.",
+  "log_entry": {
+    "EventID": 1,
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "Image": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+    "CommandLine": "wmic.exe shadowcopy delete /nointeractive",
+    "User": "CORP\\admin",
+    "ComputerName": "WS-VICTIM.corp.local"
+  },
+  "expected_alert": true,
+  "timestamp": "2024-08-01T14:31:02.456Z"
+}
