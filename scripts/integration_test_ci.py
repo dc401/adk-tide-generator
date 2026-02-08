@@ -183,7 +183,8 @@ def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "t
                 "query_string": {
                     "query": rule_info['query'],
                     "default_field": "*",
-                    "analyze_wildcard": True
+                    "analyze_wildcard": True,
+                    "case_insensitive": True
                 }
             },
             "size": 100
@@ -199,12 +200,12 @@ def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "t
             else:
                 #debug why no matches - try simplified query
                 print(f"    (no matches - debugging...)")
-                first_field = rule_info['query'].split(':')[0] if ':' in rule_info['query'] else None
+                first_field = rule_info['query'].lstrip('(').split(':')[0] if ':' in rule_info['query'] else None
                 if first_field:
                     debug_query = f"{first_field}:*"
                     debug_resp = es.search(
                         index=index_name,
-                        query={"query_string": {"query": debug_query, "default_field": "*"}},
+                        query={"query_string": {"query": debug_query, "default_field": "*", "case_insensitive": True}},
                         size=5
                     )
                     print(f"      Debug: '{debug_query}' matches {debug_resp['hits']['total']['value']} docs")
