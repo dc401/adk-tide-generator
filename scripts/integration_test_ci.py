@@ -9,6 +9,7 @@ Does NOT manage Docker containers - only runs tests.
 import json
 import time
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
@@ -296,6 +297,21 @@ def main():
         print(f"WARNING: Tests directory not found: {tests_dir}")
         print("No test payloads to validate - skipping integration test")
         print("Rules can still be deployed but won't have test coverage")
+
+        #create minimal results file for quality gate
+        output_path = Path('generated/INTEGRATION_TEST_RESULTS.json')
+        output_path.parent.mkdir(exist_ok=True, parents=True)
+        with open(output_path, 'w') as f:
+            json.dump({
+                'timestamp': datetime.now().isoformat(),
+                'status': 'skipped',
+                'reason': 'No test payloads found',
+                'rules_tested': 0,
+                'total_tests': 0,
+                'passed': 0,
+                'failed': 0
+            }, f, indent=2)
+        print(f"✓ Created minimal results file: {output_path}")
         return 0
 
     print(f"{'='*80}")
