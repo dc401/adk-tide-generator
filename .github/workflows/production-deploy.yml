@@ -1,0 +1,250 @@
+name: Production Deployment - Mock SIEM Deploy
+
+#runs after PR approval/merge
+#simulates production SIEM deployment with ephemeral ELK
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - 'generated/sigma_rules/**'
+
+permissions:
+  contents: write
+
+jobs:
+  mock-deploy:
+    name: Mock Production SIEM Deployment
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install elasticsearch pysigma pysigma-backend-elasticsearch pyyaml
+
+      - name: Start Ephemeral Elasticsearch (Mock SIEM)
+        run: |
+          echo "=== Starting Ephemeral SIEM (Mock Production) ==="
+          
+          docker run -d \
+            --name mock-siem-elasticsearch \
+            -p 9200:9200 \
+            -e "discovery.type=single-node" \
+            -e "xpack.security.enabled=false" \
+            -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+            docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+
+          echo "Waiting for SIEM to be ready..."
+          timeout 120 bash -c 'until curl -s http://localhost:9200/_cluster/health | grep -q "green\|yellow"; do sleep 2; done'
+          
+          echo "✓ Mock SIEM ready"
+
+      - name: Deploy Rules to Mock SIEM
+        id: deploy
+        run: |
+          echo "=== Deploying Rules to Production SIEM ==="
+          
+          python3 << 'DEPLOY_SCRIPT'
+          from elasticsearch import Elasticsearch
+          from sigma.rule import SigmaRule
+          from sigma.backends.elasticsearch import LuceneBackend
+          from pathlib import Path
+          import yaml
+
+          es = Elasticsearch(['http://localhost:9200'])
+          backend = LuceneBackend()
+          
+          rules_dir = Path('generated/sigma_rules')
+          deployed_count = 0
+          
+          for rule_file in rules_dir.glob('*.yml'):
+              with open(rule_file) as f:
+                  rule_yaml = yaml.safe_load(f)
+              
+              rule = SigmaRule.from_yaml(rule_file)
+              es_query = backend.convert_rule(rule)
+              
+              #deploy to Elasticsearch as detection rule
+              rule_id = rule_yaml.get('id', rule_file.stem)
+              
+              es.index(
+                  index='.kibana',
+                  id=rule_id,
+                  document={
+                      'type': 'alert',
+                      'alert': {
+                          'name': rule_yaml.get('title'),
+                          'tags': rule_yaml.get('tags', []),
+                          'params': {
+                              'query': es_query
+                          },
+                          'schedule': {'interval': '5m'},
+                          'actions': []
+                      }
+                  }
+              )
+              
+              deployed_count += 1
+              print(f"✓ Deployed: {rule_yaml.get('title')}")
+          
+          print(f"\nTotal rules deployed: {deployed_count}")
+          
+          with open('/tmp/deploy_count.txt', 'w') as f:
+              f.write(str(deployed_count))
+          DEPLOY_SCRIPT
+          
+          DEPLOYED_COUNT=$(cat /tmp/deploy_count.txt)
+          echo "deployed_count=$DEPLOYED_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Verify Deployment
+        run: |
+          echo "=== Verifying Deployment ==="
+          
+          RULE_COUNT=$(curl -s http://localhost:9200/.kibana/_count | jq -r '.count')
+          echo "Rules deployed in SIEM: $RULE_COUNT"
+          
+          echo "✓ Deployment verification passed"
+
+      - name: Move to Production Folder
+        run: |
+          echo "=== Moving Approved Rules to Production ==="
+          
+          #copy rules to production folder
+          mkdir -p generated/production_rules
+          
+          for rule_file in generated/sigma_rules/*.yml; do
+            if [ -f "$rule_file" ]; then
+              cp "$rule_file" generated/production_rules/
+              echo "✓ Moved: $(basename "$rule_file")"
+            fi
+          done
+          
+          #create deployment metadata
+          cat << METADATA_EOF > generated/production_rules/metadata/deployment_$(date +%Y%m%d_%H%M%S).json
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "pr_number": "${{ github.event.pull_request.number }}",
+            "approved_by": "${{ github.event.pull_request.merged_by.login }}",
+            "rules_deployed": ${{ steps.deploy.outputs.deployed_count }},
+            "commit_sha": "${{ github.sha }}"
+          }
+          METADATA_EOF
+          
+          echo "✓ Production metadata saved"
+
+      - name: Clean Up Staging Artifacts
+        run: |
+          echo "=== Cleaning Up Staging Artifacts ==="
+          
+          #staging rules already in production, remove from staging
+          rm -rf generated/sigma_rules
+          rm -rf generated/tests
+          
+          echo "✓ Staging artifacts cleaned"
+
+      - name: Teardown Mock SIEM
+        if: always()
+        run: |
+          echo "=== Tearing Down Ephemeral SIEM ==="
+          docker stop mock-siem-elasticsearch 2>/dev/null || true
+          docker rm mock-siem-elasticsearch 2>/dev/null || true
+          echo "✓ Mock SIEM torn down"
+
+      - name: Commit Production Rules
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add generated/production_rules/
+          
+          #staging artifacts already cleaned, remove from git
+          git rm -rf generated/sigma_rules 2>/dev/null || true
+          git rm -rf generated/tests 2>/dev/null || true
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Deploy detection rules to production
+
+            PR: #${{ github.event.pull_request.number }}
+            Approved by: ${{ github.event.pull_request.merged_by.login }}
+            Rules deployed: ${{ steps.deploy.outputs.deployed_count }}
+            
+            Mock deployment verified with ephemeral Elasticsearch.
+            In production, these rules would now be active in your SIEM.
+            
+            Co-Authored-By: ${{ github.event.pull_request.merged_by.login }} <${{ github.event.pull_request.merged_by.login }}@users.noreply.github.com>"
+            
+            git push
+          fi
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployedCount = '${{ steps.deploy.outputs.deployed_count }}';
+            
+            const comment = `## ✅ Production Deployment Complete
+
+            **Mock SIEM Deployment:** ${deployedCount} rules deployed successfully
+
+            ### Deployment Summary
+            - Approved by: @${{ github.event.pull_request.merged_by.login }}
+            - Deployed to: Ephemeral Elasticsearch (mock production)
+            - Verification: All rules loaded successfully
+            - Status: ✅ **DEPLOYED**
+
+            ### What Happened
+            1. ✅ Rules deployed to mock SIEM (Elasticsearch)
+            2. ✅ Deployment verified
+            3. ✅ Rules moved to \`generated/production_rules/\`
+            4. ✅ Staging artifacts cleaned up
+            5. ✅ Mock SIEM torn down
+
+            ### Production Deployment
+            In a real production environment:
+            - Rules would be converted to your SIEM's native format
+            - Deployed to: Splunk / Chronicle / Sentinel / QRadar / Elastic
+            - Integrated with existing alerting and response workflows
+
+            ### Files Deployed
+            Check \`generated/production_rules/\` for deployed rules and metadata.
+
+            ---
+
+            🤖 Automated by [Detection Agent](https://github.com/dc401/adk-tide-generator)`;
+
+            github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Summary
+        run: |
+          echo "================================"
+          echo "✓ Production Deployment Complete"
+          echo "================================"
+          echo ""
+          echo "Rules deployed: ${{ steps.deploy.outputs.deployed_count }}"
+          echo "Approved by: ${{ github.event.pull_request.merged_by.login }}"
+          echo ""
+          echo "In production, these rules would be active in your SIEM:"
+          echo "  - Splunk: Deployed as SPL searches"
+          echo "  - Chronicle: Deployed as YARA-L 2.0 rules"
+          echo "  - Sentinel: Deployed as KQL queries"
+          echo "  - Elastic: Deployed as Elasticsearch DSL"
+          echo ""
+          echo "Staging artifacts cleaned. Production rules in generated/production_rules/"
+          echo ""

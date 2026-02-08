@@ -1,0 +1,235 @@
+name: Human Review - Stage Detection Rules for Approval
+
+#triggered automatically after integration tests pass
+#creates PR with passing rules for human security engineer review
+
+on:
+  workflow_run:
+    workflows: ["Test Detection Rules"]
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  stage-for-review:
+    name: Stage Passing Rules for Human Review
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check for Passing Rules
+        id: check
+        run: |
+          if [ ! -d "generated/sigma_rules" ] || [ -z "$(ls -A generated/sigma_rules/*.yml 2>/dev/null)" ]; then
+            echo "No passing rules found to review"
+            echo "has_rules=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          RULE_COUNT=$(find generated/sigma_rules -name "*.yml" | wc -l)
+          echo "Found $RULE_COUNT rules for review"
+          echo "has_rules=true" >> $GITHUB_OUTPUT
+          echo "rule_count=$RULE_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Create Review Branch
+        if: steps.check.outputs.has_rules == 'true'
+        id: branch
+        run: |
+          BRANCH_NAME="detection-review-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Stage Rules for Review
+        if: steps.check.outputs.has_rules == 'true'
+        run: |
+          echo "Staging rules for human review..."
+
+          #rules are already in generated/sigma_rules/ from previous workflow
+          #just need to commit them for PR
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add generated/sigma_rules/
+          git add generated/tests/ 2>/dev/null || true
+          git add generated/STATIC_QUALITY_REPORT.json 2>/dev/null || true
+          git add generated/INTEGRATION_TEST_RESULTS.json 2>/dev/null || true
+          git add generated/ELK_VALIDATION_REPORT.json 2>/dev/null || true
+
+          git commit -m "Stage detection rules for human review
+
+          Rules: ${{ steps.check.outputs.rule_count }} rules passed automated testing
+          Quality: Static LLM judge + integration testing passed
+          
+          Review checklist:
+          - [ ] Verify detection logic aligns with threat intelligence
+          - [ ] Check for false positive risks
+          - [ ] Validate MITRE ATT&CK TTP mappings
+          - [ ] Confirm test coverage (TP/FN/FP/TN scenarios)
+          - [ ] Approve for production deployment"
+
+          git push origin "${{ steps.branch.outputs.branch_name }}"
+
+      - name: Generate Review Report
+        if: steps.check.outputs.has_rules == 'true'
+        id: report
+        run: |
+          cat << 'REPORT_EOF' > /tmp/review_report.md
+          ## Detection Rules Ready for Human Review
+
+          **${{ steps.check.outputs.rule_count }} rules** passed automated quality gates and are ready for security engineer review.
+
+          ### Quality Metrics Summary
+
+          REPORT_EOF
+
+          #add static quality report if exists
+          if [ -f "generated/STATIC_QUALITY_REPORT.json" ]; then
+            python3 << 'PYTHON_EOF' >> /tmp/review_report.md
+          import json
+          
+          with open('generated/STATIC_QUALITY_REPORT.json') as f:
+              report = json.load(f)
+          
+          summary = report.get('summary', {})
+          
+          print("#### Static LLM Judge")
+          print(f"- **Average Quality Score:** {summary.get('avg_quality_score', 'N/A')}")
+          print(f"- **Approved:** {summary.get('deployment_breakdown', {}).get('APPROVE', 0)} rules")
+          print(f"- **Conditional:** {summary.get('deployment_breakdown', {}).get('CONDITIONAL', 0)} rules")
+          print(f"- **Rejected:** {summary.get('deployment_breakdown', {}).get('REJECT', 0)} rules")
+          print()
+          PYTHON_EOF
+          fi
+
+          #add integration test results if exists
+          if [ -f "generated/INTEGRATION_TEST_RESULTS.json" ]; then
+            python3 << 'PYTHON_EOF' >> /tmp/review_report.md
+          import json
+          
+          try:
+              with open('generated/INTEGRATION_TEST_RESULTS.json') as f:
+                  results = json.load(f)
+              
+              total_tp = sum(r.get('tp', 0) for r in results.values())
+              total_fp = sum(r.get('fp', 0) for r in results.values())
+              total_tn = sum(r.get('tn', 0) for r in results.values())
+              total_fn = sum(r.get('fn', 0) for r in results.values())
+              
+              precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+              recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
+              f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+              
+              print("#### Integration Test Results (Real Elasticsearch)")
+              print(f"- **Precision:** {precision:.2f} (TP/(TP+FP))")
+              print(f"- **Recall:** {recall:.2f} (TP/(TP+FN))")
+              print(f"- **F1 Score:** {f1:.2f}")
+              print(f"- **True Positives:** {total_tp}")
+              print(f"- **False Positives:** {total_fp}")
+              print(f"- **True Negatives:** {total_tn}")
+              print(f"- **False Negatives:** {total_fn}")
+              print()
+          except Exception as e:
+              print(f"Could not load integration test results: {e}")
+              print()
+          PYTHON_EOF
+          fi
+
+          cat << 'REPORT_EOF' >> /tmp/review_report.md
+
+          ### Rules in This PR
+
+          REPORT_EOF
+
+          #list rules with metadata
+          for rule_file in generated/sigma_rules/*.yml; do
+            if [ -f "$rule_file" ]; then
+              echo "#### $(basename "$rule_file")" >> /tmp/review_report.md
+              
+              #extract title and description
+              python3 << PYTHON_EOF >> /tmp/review_report.md
+          import yaml
+          with open('$rule_file') as f:
+              rule = yaml.safe_load(f)
+          print(f"**Title:** {rule.get('title', 'N/A')}")
+          print(f"**Level:** {rule.get('level', 'N/A')}")
+          print(f"**Description:** {rule.get('description', 'N/A')}")
+          print()
+          PYTHON_EOF
+            fi
+          done
+
+          cat << 'REPORT_EOF' >> /tmp/review_report.md
+
+          ### Review Checklist
+
+          Please verify the following before approving:
+
+          - [ ] **Detection Logic:** Rules accurately detect the intended threats
+          - [ ] **False Positive Risk:** Acceptable FP rate for production environment
+          - [ ] **MITRE ATT&CK Mapping:** TTP tags are correct and relevant
+          - [ ] **Test Coverage:** TP/FN/FP/TN scenarios are comprehensive
+          - [ ] **Documentation:** Descriptions and references are clear
+          - [ ] **Production Readiness:** Rules are ready for SIEM deployment
+
+          ### What Happens Next
+
+          After approval:
+          1. Merge this PR
+          2. Automated mock deployment workflow will run
+          3. Rules moved to `generated/production_rules/`
+          4. Staging artifacts cleaned up
+          5. In production: Rules deployed to SIEM
+
+          ---
+
+          🤖 Generated by [Automated Detection Agent](https://github.com/dc401/adk-tide-generator)
+          REPORT_EOF
+
+          #save report for PR creation
+          echo "report_file=/tmp/review_report.md" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_rules == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_BODY=$(cat /tmp/review_report.md)
+          
+          gh pr create \
+            --base main \
+            --head "${{ steps.branch.outputs.branch_name }}" \
+            --title "Detection Rules Review - $(date +%Y-%m-%d)" \
+            --body "$PR_BODY" \
+            --label "detection-review" \
+            --label "needs-human-approval"
+
+          echo "✅ Pull request created for human review"
+
+      - name: Summary
+        if: steps.check.outputs.has_rules == 'true'
+        run: |
+          echo "================================"
+          echo "✓ Detection Rules Staged for Review"
+          echo "================================"
+          echo ""
+          echo "Rules: ${{ steps.check.outputs.rule_count }}"
+          echo "Branch: ${{ steps.branch.outputs.branch_name }}"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Security engineer reviews PR"
+          echo "  2. Verify detection logic and quality metrics"
+          echo "  3. Merge PR to approve for production"
+          echo ""
