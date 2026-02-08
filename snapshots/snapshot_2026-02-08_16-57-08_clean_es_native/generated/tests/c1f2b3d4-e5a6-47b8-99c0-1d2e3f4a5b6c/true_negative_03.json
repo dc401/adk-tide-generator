@@ -1,0 +1,31 @@
+{
+  "payload_type": "TN",
+  "description": "Administrator checks the boot configuration data using bcdedit without making any changes.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-03-14 15:00:00.123",
+    "process": {
+      "entity_id": "{c9d5e3f1-0a81-67b2-be5b-000000000a00}",
+      "pid": 12345,
+      "executable": "C:\\Windows\\System32\\bcdedit.exe",
+      "command_line": "bcdedit.exe /enum all",
+      "parent": {
+        "executable": "C:\\Windows\\System32\\cmd.exe",
+        "command_line": "cmd.exe",
+        "name": "cmd.exe"
+      },
+      "name": "bcdedit.exe"
+    },
+    "FileVersion": "10.0.19041.1",
+    "user": {
+      "name": "CORP\\DomainAdmin"
+    },
+    "ParentProcessGuid": "{c9d5e3f1-0a81-67b2-1c9d-000000000a00}"
+  },
+  "expected_alert": false,
+  "evasion_technique": null,
+  "legitimate_scenario": "An administrator is reviewing the boot configuration for troubleshooting purposes. This is a read-only operation and does not contain the keywords '/set' or 'recoveryenabled no'.",
+  "timestamp": "2024-07-30T10:03:02Z"
+}

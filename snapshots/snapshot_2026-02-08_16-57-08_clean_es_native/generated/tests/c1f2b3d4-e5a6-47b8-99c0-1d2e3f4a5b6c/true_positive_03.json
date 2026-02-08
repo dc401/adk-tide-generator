@@ -1,0 +1,31 @@
+{
+  "payload_type": "TP",
+  "description": "Attacker uses bcdedit.exe to disable automatic recovery, preventing the system from booting into the Windows Recovery Environment.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-03-12 22:15:14.210",
+    "process": {
+      "entity_id": "{a7b3c1d9-8e6f-65f0-8c3a-000000000800}",
+      "pid": 5680,
+      "executable": "C:\\Windows\\System32\\bcdedit.exe",
+      "command_line": "bcdedit.exe /set {default} recoveryenabled No",
+      "parent": {
+        "executable": "C:\\Users\\victim\\AppData\\Local\\Temp\\update.exe",
+        "command_line": "C:\\Users\\victim\\AppData\\Local\\Temp\\update.exe",
+        "name": "update.exe"
+      },
+      "name": "bcdedit.exe"
+    },
+    "FileVersion": "10.0.19041.1",
+    "user": {
+      "name": "NT AUTHORITY\\SYSTEM"
+    },
+    "ParentProcessGuid": "{a7b3c1d9-8e6f-65f0-1a9b-000000000800}"
+  },
+  "expected_alert": true,
+  "evasion_technique": null,
+  "legitimate_scenario": null,
+  "timestamp": "2024-07-30T10:00:03Z"
+}

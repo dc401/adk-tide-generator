@@ -1,0 +1,30 @@
+{
+  "payload_type": "FP",
+  "description": "A legitimate but unlisted backup solution (e.g., Altaro) deletes shadow copies as part of its normal operation, triggering a false positive.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-07-29 04:00:15.481",
+    "process": {
+      "entity_id": "{b5b9c1d2-6f5a-66c4-aaaa-0010a8b9bc02}",
+      "pid": 3104,
+      "executable": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+      "command_line": "wmic.exe shadowcopy delete",
+      "parent": {
+        "executable": "C:\\Program Files\\Altaro\\Altaro Backup\\Altaro.Backup.Service.exe",
+        "command_line": "\"C:\\Program Files\\Altaro\\Altaro Backup\\Altaro.Backup.Service.exe\"",
+        "name": "Altaro.Backup.Service.exe"
+      },
+      "name": "WMIC.exe"
+    },
+    "user": {
+      "name": "NT AUTHORITY\\SYSTEM"
+    },
+    "ParentProcessGuid": "{b5b9c1d2-6f5a-66c4-bbbb-0010f8e7ab02}",
+    "ParentProcessId": 2890
+  },
+  "expected_alert": true,
+  "legitimate_scenario": "A third-party backup application ('Altaro') is managing VSS snapshots. Since its parent process path is not in the rule's exclusion filter, its legitimate activity will trigger an alert.",
+  "timestamp": "2024-07-29T04:00:15.481Z"
+}

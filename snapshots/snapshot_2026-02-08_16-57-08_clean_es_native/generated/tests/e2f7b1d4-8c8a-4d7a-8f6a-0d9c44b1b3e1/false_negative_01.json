@@ -1,0 +1,30 @@
+{
+  "payload_type": "FN",
+  "description": "Attacker uses PowerShell to interact with WMI to delete shadow copies, bypassing direct calls to vssadmin.exe or wmic.exe and evading the rule.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-07-29 11:18:10.998",
+    "process": {
+      "entity_id": "{a4a8b0c1-5e4f-65b3-6666-0010e9f1ac02}",
+      "pid": 5380,
+      "executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "command_line": "powershell.exe -c \"Get-CimInstance -ClassName Win32_ShadowCopy | ForEach-Object { $_.Delete() }\"",
+      "parent": {
+        "executable": "C:\\Perflogs\\payload.exe",
+        "command_line": "C:\\Perflogs\\payload.exe",
+        "name": "payload.exe"
+      },
+      "name": "powershell.exe"
+    },
+    "user": {
+      "name": "NT AUTHORITY\\SYSTEM"
+    },
+    "ParentProcessGuid": "{a4a8b0c1-5e4f-65b3-7777-0010a7d4aa07}",
+    "ParentProcessId": 4899
+  },
+  "expected_alert": false,
+  "evasion_technique": "The rule specifically looks for process names 'vssadmin.exe', 'wmic.exe', or 'bcdedit.exe'. Using PowerShell with CIM/WMI calls to perform the same action evades this detection.",
+  "timestamp": "2024-07-29T11:18:10.998Z"
+}

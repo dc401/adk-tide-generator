@@ -1,0 +1,29 @@
+{
+  "payload_type": "TP",
+  "description": "A malicious script uses wmic.exe to delete shadow copies, a technique used by Akira ransomware.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-07-29 11:17:15.941",
+    "process": {
+      "entity_id": "{a4a8b0c1-5e4f-65b3-4444-0010e8e8ac03}",
+      "pid": 5302,
+      "executable": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+      "command_line": "wmic.exe shadowcopy delete /nointeractive",
+      "parent": {
+        "executable": "C:\\Users\\Public\\update.exe",
+        "command_line": "C:\\Users\\Public\\update.exe",
+        "name": "update.exe"
+      },
+      "name": "WMIC.exe"
+    },
+    "user": {
+      "name": "NT AUTHORITY\\SYSTEM"
+    },
+    "ParentProcessGuid": "{a4a8b0c1-5e4f-65b3-5555-0010a7d4aa05}",
+    "ParentProcessId": 4872
+  },
+  "expected_alert": true,
+  "timestamp": "2024-07-29T11:17:15.941Z"
+}

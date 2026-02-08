@@ -1,0 +1,30 @@
+{
+  "payload_type": "TN",
+  "description": "A system administrator checks the boot configuration data using bcdedit, which is a benign, non-destructive action.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-07-29 14:32:11.201",
+    "process": {
+      "entity_id": "{e8ec04f5-9c8d-69f7-1c1c-0010dbf2ef05}",
+      "pid": 6340,
+      "executable": "C:\\Windows\\System32\\bcdedit.exe",
+      "command_line": "bcdedit /enum all",
+      "parent": {
+        "executable": "C:\\Windows\\System32\\cmd.exe",
+        "command_line": "C:\\Windows\\system32\\cmd.exe",
+        "name": "cmd.exe"
+      },
+      "name": "bcdedit.exe"
+    },
+    "user": {
+      "name": "CONTOSO\\admin"
+    },
+    "ParentProcessGuid": "{e8ec04f5-9c8d-69f7-1d1d-0010dbe1ee05}",
+    "ParentProcessId": 5900
+  },
+  "expected_alert": false,
+  "legitimate_scenario": "This command is for enumeration and does not include the malicious keywords ('recoveryenabled no', 'bootstatuspolicy ignoreallfailures') targeted by the rule.",
+  "timestamp": "2024-07-29T14:32:11.201Z"
+}

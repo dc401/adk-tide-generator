@@ -1,0 +1,31 @@
+{
+  "payload_type": "FN",
+  "description": "Evasion by using PowerShell to delete shadow copies. This rule only detects specific executables and would miss this.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-03-12 22:16:05.111",
+    "process": {
+      "entity_id": "{a7b3c1d9-8e6f-65f0-8d01-000000000800}",
+      "pid": 6012,
+      "executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "command_line": "powershell.exe -Command \"Get-CimInstance -ClassName Win32_ShadowCopy | ForEach-Object { $_.Delete() }\"",
+      "parent": {
+        "executable": "C:\\Windows\\System32\\cmd.exe",
+        "command_line": "cmd.exe",
+        "name": "cmd.exe"
+      },
+      "name": "powershell.exe"
+    },
+    "FileVersion": "10.0.19041.1",
+    "user": {
+      "name": "CORP\\CompromisedAdmin"
+    },
+    "ParentProcessGuid": "{a7b3c1d9-8e6f-65f0-8c1d-000000000800}"
+  },
+  "expected_alert": false,
+  "evasion_technique": "Using an alternative utility (PowerShell) not specified in the rule's 'process.name' selections, bypassing the detection logic.",
+  "legitimate_scenario": null,
+  "timestamp": "2024-07-30T10:01:00Z"
+}

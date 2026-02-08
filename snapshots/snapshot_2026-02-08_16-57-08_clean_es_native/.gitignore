@@ -1,0 +1,42 @@
+#Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+#Virtual environments
+venv/
+env/
+ENV/
+
+#IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+#OS
+.DS_Store
+Thumbs.db
+
+#Project-specific
+session_results/
+generated/staging/
+generated/.github/
+*.log
+.env
+
+#Elasticsearch data (if running locally)
+data/
+logs/
+
+#Temporary files
+*.tmp
+.cache/
+
+#Archives
+*.zip
+*.tar.gz
+*.tgz

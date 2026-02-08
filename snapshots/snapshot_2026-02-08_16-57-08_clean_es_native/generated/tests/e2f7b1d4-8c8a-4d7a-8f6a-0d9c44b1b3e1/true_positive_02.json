@@ -1,0 +1,29 @@
+{
+  "payload_type": "TP",
+  "description": "Akira ransomware uses bcdedit.exe via cmd.exe to disable the Windows Recovery Environment.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-07-29 11:16:05.122",
+    "process": {
+      "entity_id": "{a4a8b0c1-5e4f-65b3-2222-0010d9f0ab01}",
+      "pid": 5244,
+      "executable": "C:\\Windows\\System32\\bcdedit.exe",
+      "command_line": "bcdedit.exe /set {default} recoveryenabled No",
+      "parent": {
+        "executable": "C:\\Windows\\System32\\cmd.exe",
+        "command_line": "cmd /c \"bcdedit /set {default} recoveryenabled no\"",
+        "name": "cmd.exe"
+      },
+      "name": "bcdedit.exe"
+    },
+    "user": {
+      "name": "WORKSTATION1\\maladmin"
+    },
+    "ParentProcessGuid": "{a4a8b0c1-5e4f-65b3-3333-0010a7d4ab02}",
+    "ParentProcessId": 4910
+  },
+  "expected_alert": true,
+  "timestamp": "2024-07-29T11:16:05.122Z"
+}

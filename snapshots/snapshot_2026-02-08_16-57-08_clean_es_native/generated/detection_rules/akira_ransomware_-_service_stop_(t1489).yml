@@ -1,0 +1,120 @@
+name: Akira Ransomware - Service Stop (T1489)
+description: Detects Akira ransomware's attempts to stop critical services or disable
+  their startup type using net.exe, sc.exe, or taskkill. This action aims to unlock
+  files or disable security/backup tools before encryption.
+type: query
+query: event.code:1 AND ( (process.name:*net* AND process.command_line:*stop*) OR
+  (process.name:*sc* AND process.command_line:(*config*start=disabled*)) OR (process.name:*taskkill*
+  AND process.command_line:(*IM*sqlservr.exe* OR *IM*veeam* OR *IM*sophos*)) )
+language: lucene
+index:
+- logs-*
+- winlogbeat-*
+- filebeat-*
+filters: []
+risk_score: 73
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1489
+    name: Service Stop
+    reference: https://attack.mitre.org/techniques/T1489/
+references:
+- https://attack.mitre.org/techniques/T1489/
+- https://www.elastic.co/guide/en/ecs/current/ecs-process.html
+author:
+- Detection Agent
+false_positives:
+- System administrators performing maintenance or troubleshooting
+- Legitimate software installations/uninstallations that stop services
+note: '## Triage
+
+  Investigate: parent process, user context, timing, and full command line.
+
+  Escalate if: executed by non-admin, outside of maintenance windows, or targeting
+  critical security/backup services.'
+test_cases:
+- type: TP
+  description: Malicious net stop command for Veeam service
+  log_entry:
+    event:
+      code: 1
+      action: process_created
+    process:
+      name: net.exe
+      command_line: net stop "Veeam Backup Service" /y
+      executable: C:\Windows\System32\net.exe
+    '@timestamp': '2024-03-12T22:20:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious sc config command to disable Sophos service
+  log_entry:
+    event:
+      code: 1
+      action: process_created
+    process:
+      name: sc.exe
+      command_line: sc config "Sophos Agent" start= disabled
+      executable: C:\Windows\System32\sc.exe
+    '@timestamp': '2024-03-12T22:20:10Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious taskkill command for SQL Server
+  log_entry:
+    event:
+      code: 1
+      action: process_created
+    process:
+      name: taskkill.exe
+      command_line: taskkill /F /IM sqlservr.exe
+      executable: C:\Windows\System32\taskkill.exe
+    '@timestamp': '2024-03-12T22:20:20Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: PowerShell evasion using Stop-Service cmdlet
+  log_entry:
+    event:
+      code: 1
+      action: process_created
+    process:
+      name: powershell.exe
+      command_line: powershell.exe -Command "Stop-Service -Name 'Veeam Backup Service'"
+      executable: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    '@timestamp': '2024-03-12T22:21:00Z'
+  expected_match: false
+  evasion_technique: Uses PowerShell cmdlet instead of direct CLI tools (net, sc,
+    taskkill). Rule only covers specific process names and command line arguments.
+- type: FP
+  description: Admin starting a legitimate service
+  log_entry:
+    event:
+      code: 1
+      action: process_created
+    process:
+      name: net.exe
+      command_line: net start "Windows Update"
+      executable: C:\Windows\System32\net.exe
+    '@timestamp': '2024-03-14T10:10:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal system activity (svchost.exe)
+  log_entry:
+    event:
+      code: 1
+      action: process_created
+    process:
+      name: svchost.exe
+      command_line: C:\Windows\System32\svchost.exe -k LocalService
+      executable: C:\Windows\System32\svchost.exe
+    '@timestamp': '2024-03-14T10:15:00Z'
+  expected_match: false
+  evasion_technique: null

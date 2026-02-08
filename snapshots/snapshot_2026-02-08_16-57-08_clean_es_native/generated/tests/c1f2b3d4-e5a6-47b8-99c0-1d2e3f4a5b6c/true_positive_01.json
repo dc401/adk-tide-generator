@@ -1,0 +1,31 @@
+{
+  "payload_type": "TP",
+  "description": "Akira ransomware executing vssadmin to delete all shadow copies quietly, a classic pre-encryption step.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-03-12 22:15:10.543",
+    "process": {
+      "entity_id": "{a7b3c1d9-8e6f-65f0-8c1d-000000000800}",
+      "pid": 5432,
+      "executable": "C:\\Windows\\System32\\vssadmin.exe",
+      "command_line": "vssadmin.exe delete shadows /all /quiet",
+      "parent": {
+        "executable": "C:\\Users\\victim\\AppData\\Local\\Temp\\update.exe",
+        "command_line": "C:\\Users\\victim\\AppData\\Local\\Temp\\update.exe",
+        "name": "update.exe"
+      },
+      "name": "vssadmin.exe"
+    },
+    "FileVersion": "10.0.19041.1",
+    "user": {
+      "name": "NT AUTHORITY\\SYSTEM"
+    },
+    "ParentProcessGuid": "{a7b3c1d9-8e6f-65f0-1a9b-000000000800}"
+  },
+  "expected_alert": true,
+  "evasion_technique": null,
+  "legitimate_scenario": null,
+  "timestamp": "2024-07-30T10:00:01Z"
+}

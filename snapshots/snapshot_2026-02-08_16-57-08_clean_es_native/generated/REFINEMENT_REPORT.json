@@ -1,0 +1,17 @@
+{
+  "attempt": 1,
+  "timestamp": "2026-02-08T09:54:47.905142",
+  "total_rules_refined": 1,
+  "refinements": [
+    {
+      "rule_id": "e2f7b1d4-8c8a-4d7a-8f6a-0d9c44b1b3e1",
+      "rule_title": "Akira Ransomware Inhibit System Recovery via Command",
+      "issue": "field_mismatch",
+      "action": "convert_sysmon_to_ecs",
+      "confidence": 0.95,
+      "payloads_modified": 10,
+      "timestamp": "2026-02-08T09:54:47.905119"
+    }
+  ],
+  "backup_location": "generated/tests_backup"
+}

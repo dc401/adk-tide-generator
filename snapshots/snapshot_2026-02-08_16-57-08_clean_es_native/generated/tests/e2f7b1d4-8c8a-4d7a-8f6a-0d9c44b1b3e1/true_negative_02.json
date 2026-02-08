@@ -1,0 +1,30 @@
+{
+  "payload_type": "TN",
+  "description": "Veeam backup software legitimately deletes a shadow copy as part of its backup lifecycle management, which is correctly filtered by the rule.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-07-29 02:05:00.834",
+    "process": {
+      "entity_id": "{d7dbf3e4-8b7c-68e6-1a1a-0010cad1de04}",
+      "pid": 4500,
+      "executable": "C:\\Windows\\System32\\vssadmin.exe",
+      "command_line": "vssadmin.exe delete shadows /for=\\\\\\?\\Volume{...} /oldest",
+      "parent": {
+        "executable": "C:\\Program Files\\Veeam\\Backup and Replication\\Veeam.Backup.Manager.exe",
+        "command_line": "\"C:\\Program Files\\Veeam\\Backup and Replication\\Veeam.Backup.Manager.exe\"",
+        "name": "Veeam.Backup.Manager.exe"
+      },
+      "name": "vssadmin.exe"
+    },
+    "user": {
+      "name": "NT AUTHORITY\\SYSTEM"
+    },
+    "ParentProcessGuid": "{d7dbf3e4-8b7c-68e6-1b1b-0010bad0dd04}",
+    "ParentProcessId": 4210
+  },
+  "expected_alert": false,
+  "legitimate_scenario": "The command matches the 'selection' criteria, but the parent process path contains '\\Veeam\\', which is in the 'filter_legitimate' list. Therefore, the condition 'selection and not filter_legitimate' is false.",
+  "timestamp": "2024-07-29T02:05:00.834Z"
+}

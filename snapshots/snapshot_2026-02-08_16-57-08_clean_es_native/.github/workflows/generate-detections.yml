@@ -1,0 +1,196 @@
+name: Generate Detection Rules from CTI
+
+#generate Elasticsearch Detection Rules and test payloads from CTI sources
+#runs agent in GitHub Actions environment
+
+on:
+  workflow_dispatch:  #manual trigger
+  push:
+    branches: [main]
+    paths:
+      - 'cti_src/**'  #trigger when CTI files change
+
+permissions:
+  contents: write  #allow workflow to commit and push
+
+jobs:
+  generate-rules:
+    name: Generate Elasticsearch Detection Rules from CTI
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  #increased for larger CTI files with more indicators
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Clean Stale Artifacts
+        run: |
+          echo "Cleaning stale artifacts from previous runs..."
+
+          #run cleanup script
+          bash scripts/cleanup_staging.sh
+
+          #clean local session_results folder (not committed but may exist from manual runs)
+          rm -rf session_results/*
+          echo "✓ Cleaned session_results/"
+
+          echo "Ready for fresh generation run"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          echo "Installing Python dependencies..."
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          echo "✓ Dependencies installed successfully"
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Check CTI Files
+        run: |
+          echo "Validating CTI files..."
+
+          #check for valid file extensions only
+          CTI_FILES=$(find cti_src -type f \( -name "*.md" -o -name "*.txt" -o -name "*.pdf" -o -name "*.docx" \))
+          FILE_COUNT=$(echo "$CTI_FILES" | grep -c . || echo 0)
+
+          echo "Found $FILE_COUNT CTI file(s)"
+
+          #validation checks
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "ERROR: No CTI files found in cti_src/"
+            exit 1
+          fi
+
+          #prevent DoS from too many files (max 50 files)
+          if [ "$FILE_COUNT" -gt 50 ]; then
+            echo "ERROR: Too many CTI files ($FILE_COUNT > 50)"
+            echo "Process files in batches to avoid quota exhaustion"
+            exit 1
+          fi
+
+          #check for suspicious file names
+          SUSPICIOUS_FILES=$(find cti_src -type f -name "*../*" -o -name "*.exe" -o -name "*.sh" -o -name "*.bat")
+          if [ -n "$SUSPICIOUS_FILES" ]; then
+            echo "ERROR: Suspicious files detected:"
+            echo "$SUSPICIOUS_FILES"
+            exit 1
+          fi
+
+          #check for overly large files (>50MB per file)
+          LARGE_FILES=$(find cti_src -type f -size +50M)
+          if [ -n "$LARGE_FILES" ]; then
+            echo "ERROR: Files exceed 50MB size limit:"
+            echo "$LARGE_FILES"
+            exit 1
+          fi
+
+          echo "✓ All CTI files validated"
+          echo "CTI files to process:"
+          echo "$CTI_FILES" | while read -r file; do
+            SIZE=$(du -h "$file" | cut -f1)
+            echo "  - $file ($SIZE)"
+          done
+
+      - name: Generate Detection Rules
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+        run: |
+          echo "Starting Elasticsearch detection rule generation from CTI sources..."
+
+          python run_agent.py \
+            --cti-folder cti_src \
+            --output generated \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --location global
+
+      - name: Verify Generated Rules
+        run: |
+          echo "Checking generated artifacts..."
+
+          #count detection rules
+          if [ -d "generated/detection_rules" ]; then
+            RULE_COUNT=$(find generated/detection_rules -name "*.yml" | wc -l)
+            echo "Generated detection rules: $RULE_COUNT"
+            ls -lh generated/detection_rules/
+          else
+            echo "WARNING: No detection_rules directory found"
+            RULE_COUNT=0
+          fi
+
+          #count test cases (embedded in rule YAML)
+          if [ -f "generated/cti_context.yml" ]; then
+            echo "✓ CTI context saved"
+            ls -lh generated/cti_context.yml
+          else
+            echo "WARNING: No cti_context.yml found"
+          fi
+
+          #require at least some output
+          if [ "$RULE_COUNT" -eq 0 ]; then
+            echo "ERROR: No detection rules were generated"
+            exit 1
+          fi
+
+      - name: Commit Generated Rules
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          #commit generated detection rules
+          git add generated/detection_rules/ 2>/dev/null || true
+          git add generated/cti_context.yml 2>/dev/null || true
+
+          #check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "rule_count=0" >> $GITHUB_OUTPUT
+          else
+            RULE_COUNT=$(find generated/detection_rules -name "*.yml" 2>/dev/null | wc -l || echo 0)
+            echo "rule_count=$RULE_COUNT" >> $GITHUB_OUTPUT
+
+            git commit -m "ci: generated $RULE_COUNT detection rules from CTI [skip ci]"
+
+            #pull and rebase in case remote was updated during workflow run
+            git pull --rebase || true
+
+            git push
+          fi
+
+      - name: Upload Generated Rules
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detection-rules
+          path: |
+            generated/detection_rules/
+            generated/cti_context.yml
+          retention-days: 30
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "================================"
+          echo "✓ Detection Generation Complete"
+          echo "================================"
+          echo ""
+          RULE_COUNT="${{ steps.commit.outputs.rule_count }}"
+          echo "Generated $RULE_COUNT Elasticsearch Detection Rules"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Create integration test script"
+          echo "  2. Add refinement loop (2-3 iterations)"
+          echo "  3. Build deployment workflow"
+          echo ""
+          echo "Generated artifacts committed to generated/"

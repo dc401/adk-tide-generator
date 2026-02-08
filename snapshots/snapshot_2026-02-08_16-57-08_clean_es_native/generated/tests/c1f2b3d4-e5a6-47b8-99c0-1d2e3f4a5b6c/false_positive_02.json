@@ -1,0 +1,31 @@
+{
+  "payload_type": "FP",
+  "description": "Backup software uninstallation script uses wmic to clean up its shadow copy provider, which triggers the rule.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-03-13 11:05:30.450",
+    "process": {
+      "entity_id": "{b8c4d2e0-9f70-66a1-9f5a-000000000900}",
+      "pid": 9543,
+      "executable": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+      "command_line": "wmic.exe shadowcopy where \"ProviderID='{b5946137-7b9f-4925-af80-51abd60b20d5}'\" delete",
+      "parent": {
+        "executable": "C:\\Program Files\\OldBackup\\uninstall.exe",
+        "command_line": "\"C:\\Program Files\\OldBackup\\uninstall.exe\" /quiet",
+        "name": "uninstall.exe"
+      },
+      "name": "WMIC.exe"
+    },
+    "FileVersion": "10.0.19041.1",
+    "user": {
+      "name": "NT AUTHORITY\\SYSTEM"
+    },
+    "ParentProcessGuid": "{b8c4d2e0-9f70-66a1-9f50-000000000900}"
+  },
+  "expected_alert": true,
+  "evasion_technique": null,
+  "legitimate_scenario": "An uninstaller for a backup application is removing its specific VSS provider-related shadow copies as part of a clean removal. The command contains 'shadowcopy' and 'delete', triggering the alert.",
+  "timestamp": "2024-07-30T10:02:01Z"
+}

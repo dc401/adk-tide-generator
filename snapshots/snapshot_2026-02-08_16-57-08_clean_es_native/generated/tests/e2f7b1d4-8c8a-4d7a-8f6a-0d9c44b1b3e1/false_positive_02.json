@@ -1,0 +1,30 @@
+{
+  "payload_type": "FP",
+  "description": "An administrator runs a script to disable the recovery environment before a planned major OS upgrade, which can be misidentified as malicious.",
+  "log_entry": {
+    "event": {
+      "code": 1
+    },
+    "@timestamp": "2024-07-28 22:10:00.313",
+    "process": {
+      "entity_id": "{b5b9c1d2-6f5a-66c4-cccc-0010a9c1bd03}",
+      "pid": 8050,
+      "executable": "C:\\Windows\\System32\\bcdedit.exe",
+      "command_line": "bcdedit.exe /set {current} recoveryenabled No",
+      "parent": {
+        "executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "command_line": "powershell.exe -File C:\\IT-Scripts\\OS_Upgrade_Prep.ps1",
+        "name": "powershell.exe"
+      },
+      "name": "bcdedit.exe"
+    },
+    "user": {
+      "name": "CONTOSO\\deployadmin"
+    },
+    "ParentProcessGuid": "{b5b9c1d2-6f5a-66c4-dddd-0010f9e8ac04}",
+    "ParentProcessId": 7500
+  },
+  "expected_alert": true,
+  "legitimate_scenario": "A legitimate, though uncommon, administrative action to disable system recovery as a prerequisite for a controlled software deployment or upgrade. The parent process is a generic script host, making it hard to distinguish from malicious activity without further context.",
+  "timestamp": "2024-07-28T22:10:00.313Z"
+}
