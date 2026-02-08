@@ -63,15 +63,17 @@ jobs:
 
           es = Elasticsearch(['http://localhost:9200'])
           backend = LuceneBackend()
-          
-          rules_dir = Path('generated/sigma_rules')
+
+          rules_dir = Path('generated/production_rules')
           deployed_count = 0
-          
+
           for rule_file in rules_dir.glob('*.yml'):
               with open(rule_file) as f:
                   rule_yaml = yaml.safe_load(f)
-              
-              rule = SigmaRule.from_yaml(rule_file)
+
+              #reopen file for SigmaRule (needs file handle)
+              with open(rule_file) as f:
+                  rule = SigmaRule.from_yaml(f)
               es_query = backend.convert_rule(rule)
               
               #deploy to Elasticsearch as detection rule
@@ -115,21 +117,14 @@ jobs:
           
           echo "✓ Deployment verification passed"
 
-      - name: Move to Production Folder
+      - name: Create Deployment Metadata
         run: |
-          echo "=== Moving Approved Rules to Production ==="
-          
-          #copy rules to production folder
-          mkdir -p generated/production_rules
-          
-          for rule_file in generated/sigma_rules/*.yml; do
-            if [ -f "$rule_file" ]; then
-              cp "$rule_file" generated/production_rules/
-              echo "✓ Moved: $(basename "$rule_file")"
-            fi
-          done
-          
-          #create deployment metadata
+          echo "=== Creating Deployment Metadata ==="
+
+          #rules already in production_rules/ from PR merge
+          #just create deployment metadata
+          mkdir -p generated/production_rules/metadata
+
           cat << METADATA_EOF > generated/production_rules/metadata/deployment_$(date +%Y%m%d_%H%M%S).json
           {
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -139,8 +134,8 @@ jobs:
             "commit_sha": "${{ github.sha }}"
           }
           METADATA_EOF
-          
-          echo "✓ Production metadata saved"
+
+          echo "✓ Deployment metadata saved"
 
       - name: Clean Up Staging Artifacts
         run: |
