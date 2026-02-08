@@ -32,6 +32,35 @@ jobs:
       - name: Install Dependencies
         run: pip install pyyaml
 
+      - name: Verify Quality Gates
+        id: quality
+        run: |
+          echo "=== Checking Quality Gates ==="
+
+          #check if integration tests were skipped
+          if [ -f "generated/INTEGRATION_TEST_RESULTS.json" ]; then
+            STATUS=$(python3 -c "import json; print(json.load(open('generated/INTEGRATION_TEST_RESULTS.json')).get('status', 'unknown'))")
+            if [ "$STATUS" == "skipped" ]; then
+              echo "❌ FAIL: Integration tests were SKIPPED (no test payloads)"
+              echo "Cannot promote rules without integration testing"
+              exit 1
+            fi
+          fi
+
+          #check if ELK validation rejected all rules
+          if [ -f "generated/ELK_VALIDATION_REPORT.json" ]; then
+            APPROVED=$(python3 -c "import json; print(json.load(open('generated/ELK_VALIDATION_REPORT.json')).get('approved_queries', 0))")
+            REJECTED=$(python3 -c "import json; print(json.load(open('generated/ELK_VALIDATION_REPORT.json')).get('rejected_queries', 0))")
+
+            if [ "$APPROVED" -eq 0 ] && [ "$REJECTED" -gt 0 ]; then
+              echo "❌ FAIL: All ELK queries were REJECTED ($REJECTED rules)"
+              echo "Cannot promote rules that failed ELK validation"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Quality gates passed"
+
       - name: Check for Passing Rules
         id: check
         run: |
