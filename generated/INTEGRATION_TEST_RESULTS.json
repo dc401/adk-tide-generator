@@ -4,8 +4,8 @@
     "rule_level": "HIGH",
     "tp": 0,
     "fp": 0,
-    "tn": 10,
-    "fn": 0,
+    "tn": 5,
+    "fn": 5,
     "precision": 0.0,
     "recall": 0.0,
     "f1_score": 0.0
