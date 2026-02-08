@@ -60,3 +60,4 @@ htmlcov/
 credentials.json
 key.json
 session_results/
+generated/tests_backup/
