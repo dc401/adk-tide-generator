@@ -116,12 +116,18 @@ def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
             continue
 
         payload_map[rule_dir.name] = []
+        print(f"\n  Rule: {rule_dir.name}")
 
         for payload_file in rule_dir.glob('*.json'):
             with open(payload_file) as f:
                 payload = json.load(f)
 
             doc_id = f"{rule_dir.name}_{payload_file.stem}"
+
+            #show what we're indexing
+            log_entry = payload.get('log_entry', payload)
+            field_sample = list(log_entry.keys())[:5] if isinstance(log_entry, dict) else []
+            print(f"    • {payload_file.stem}: fields={field_sample}")
 
             #ingest to elasticsearch
             es.index(index=index_name, id=doc_id, document=payload)
@@ -137,8 +143,16 @@ def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
     #refresh index to make documents searchable
     es.indices.refresh(index=index_name)
 
-    #wait for index to stabilize after refresh
-    print(f"  ✓ Ingested {total_ingested} test payloads")
+    #verify indexing worked
+    count_result = es.count(index=index_name)
+    indexed_count = count_result['count']
+
+    print(f"\n  ✓ Ingested {total_ingested} test payloads")
+    print(f"  ✓ Elasticsearch reports {indexed_count} documents in '{index_name}' index")
+
+    if indexed_count != total_ingested:
+        print(f"  ⚠ WARNING: Mismatch! Sent {total_ingested} but ES has {indexed_count}")
+
     print("  Waiting 3s for index to stabilize...")
     time.sleep(3)
 
@@ -148,9 +162,22 @@ def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "t
     """run Elasticsearch queries and collect matches"""
     print("\n[4/5] Running detection queries...")
 
+    #show index contents first
+    count_result = es.count(index=index_name)
+    print(f"\n  Index '{index_name}' has {count_result['count']} documents")
+
+    #show sample document structure
+    sample_resp = es.search(index=index_name, size=1)
+    if sample_resp['hits']['total']['value'] > 0:
+        sample_doc = sample_resp['hits']['hits'][0]['_source']
+        print(f"  Sample document fields: {list(sample_doc.keys())[:10]}")
+
     detections = {}
 
     for rule_id, rule_info in queries.items():
+        print(f"\n  Testing: {rule_info['title']}")
+        print(f"    Lucene query: {rule_info['query']}")
+
         query_dsl = {
             "query": {
                 "query_string": {
@@ -165,13 +192,31 @@ def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "t
         try:
             response = es.search(index=index_name, query=query_dsl['query'], size=query_dsl['size'])
             matched_ids = [hit['_id'] for hit in response['hits']['hits']]
+
+            print(f"    Matched: {len(matched_ids)} documents")
+            if matched_ids:
+                print(f"      Document IDs: {matched_ids[:5]}")
+            else:
+                #debug why no matches - try simplified query
+                print(f"    (no matches - debugging...)")
+                first_field = rule_info['query'].split(':')[0] if ':' in rule_info['query'] else None
+                if first_field:
+                    debug_query = f"{first_field}:*"
+                    debug_resp = es.search(
+                        index=index_name,
+                        query={"query_string": {"query": debug_query, "default_field": "*"}},
+                        size=5
+                    )
+                    print(f"      Debug: '{debug_query}' matches {debug_resp['hits']['total']['value']} docs")
+
             detections[rule_id] = matched_ids
+
         except Exception as e:
-            print(f"  ⚠ Error running query for {rule_info['title']}: {e}")
+            print(f"    ✗ ERROR running query: {e}")
             detections[rule_id] = []
 
     total_detections = sum(len(ids) for ids in detections.values())
-    print(f"  ✓ Ran {len(queries)} queries, {total_detections} matches")
+    print(f"\n  Summary: {total_detections} total matches across {len(queries)} rules")
 
     return detections
 
