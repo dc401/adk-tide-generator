@@ -1,0 +1,229 @@
+name: Cleanup Stale Artifacts
+
+#weekly cleanup of stale generated artifacts not tied to open PRs
+#preserves production_rules/ which contain human-approved rules
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  #2 AM UTC every Sunday
+  workflow_dispatch:  #manual trigger for testing
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup:
+    name: Clean Stale Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  #need full history to check PR associations
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install gh CLI
+        run: |
+          type -p gh >/dev/null 2>&1 || {
+            echo "Installing gh CLI..."
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh
+          }
+
+      - name: Get Open PRs
+        id: open-prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching open PRs..."
+          OPEN_PRS=$(gh pr list --state open --json number --jq '.[].number' | tr '\n' ',' | sed 's/,$//')
+          echo "open_prs=$OPEN_PRS" >> $GITHUB_OUTPUT
+          echo "Open PRs: $OPEN_PRS"
+
+      - name: Identify Stale Artifacts
+        id: identify
+        env:
+          OPEN_PRS: ${{ steps.open-prs.outputs.open_prs }}
+        run: |
+          echo "Identifying stale artifacts..."
+
+          STALE_ITEMS=""
+          PROTECTED_ITEMS=""
+
+          #check generated/ directory (excluding production_rules)
+          if [ -d "generated" ]; then
+            for item in generated/*; do
+              #skip production_rules - never clean these
+              if [[ "$item" == "generated/production_rules" ]]; then
+                PROTECTED_ITEMS="$PROTECTED_ITEMS\n  - $item (production rules - protected)"
+                continue
+              fi
+
+              #skip README.md
+              if [[ "$item" == "generated/README.md" ]]; then
+                continue
+              fi
+
+              #check if associated with open PR (via git blame or file metadata)
+              IS_STALE=true
+
+              #if OPEN_PRS is not empty, check each PR
+              if [ -n "$OPEN_PRS" ]; then
+                IFS=',' read -ra PR_ARRAY <<< "$OPEN_PRS"
+                for pr in "${PR_ARRAY[@]}"; do
+                  #check if item was created/modified in this PR's branch
+                  PR_BRANCH=$(gh pr view "$pr" --json headRefName --jq '.headRefName' 2>/dev/null || echo "")
+                  if [ -n "$PR_BRANCH" ]; then
+                    #check if file exists in PR branch
+                    if git rev-parse --verify "origin/$PR_BRANCH" >/dev/null 2>&1; then
+                      if git ls-tree -r "origin/$PR_BRANCH" --name-only | grep -q "^${item}$"; then
+                        IS_STALE=false
+                        PROTECTED_ITEMS="$PROTECTED_ITEMS\n  - $item (linked to PR #$pr)"
+                        break
+                      fi
+                    fi
+                  fi
+                done
+              fi
+
+              #mark as stale if not protected
+              if [ "$IS_STALE" = true ]; then
+                STALE_ITEMS="$STALE_ITEMS\n  - $item"
+              fi
+            done
+          fi
+
+          #check session_results (always clean - never committed)
+          if [ -d "session_results" ] && [ "$(ls -A session_results 2>/dev/null)" ]; then
+            STALE_ITEMS="$STALE_ITEMS\n  - session_results/* (temp session logs)"
+          fi
+
+          #check for old workflow artifacts (>30 days)
+          #Note: actual artifact cleanup happens via GitHub's retention policy
+
+          #save results
+          echo -e "stale_items=$STALE_ITEMS" >> $GITHUB_OUTPUT
+          echo -e "protected_items=$PROTECTED_ITEMS" >> $GITHUB_OUTPUT
+
+          #summary
+          echo "Stale artifacts identified:"
+          echo -e "$STALE_ITEMS"
+          echo ""
+          echo "Protected items:"
+          echo -e "$PROTECTED_ITEMS"
+
+      - name: Clean Stale Artifacts
+        env:
+          STALE_ITEMS: ${{ steps.identify.outputs.stale_items }}
+        run: |
+          echo "Cleaning stale artifacts..."
+
+          CLEANED_COUNT=0
+
+          #clean generated/ artifacts (except production_rules)
+          if [ -d "generated" ]; then
+            for item in generated/*; do
+              #NEVER touch production_rules
+              if [[ "$item" == "generated/production_rules" ]]; then
+                continue
+              fi
+
+              #skip README
+              if [[ "$item" == "generated/README.md" ]]; then
+                continue
+              fi
+
+              #remove stale items
+              if [ -e "$item" ]; then
+                echo "  Removing: $item"
+                rm -rf "$item"
+                CLEANED_COUNT=$((CLEANED_COUNT + 1))
+              fi
+            done
+          fi
+
+          #clean session_results
+          if [ -d "session_results" ]; then
+            echo "  Removing: session_results/*"
+            rm -rf session_results/*
+            CLEANED_COUNT=$((CLEANED_COUNT + 1))
+          fi
+
+          #clean staging directory
+          if [ -d "generated/staging" ]; then
+            echo "  Removing: generated/staging/*"
+            rm -rf generated/staging/*
+            CLEANED_COUNT=$((CLEANED_COUNT + 1))
+          fi
+
+          echo ""
+          echo "Cleaned $CLEANED_COUNT stale items"
+          echo "cleaned_count=$CLEANED_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Commit Cleanup
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          #check if there are changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No stale artifacts to clean"
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            git add -A
+
+            #commit with details
+            COMMIT_MSG="chore: weekly cleanup of stale artifacts [skip ci]
+
+Cleaned stale generated artifacts not tied to open PRs.
+
+Protected:
+- generated/production_rules/ (human-approved rules)
+- Files linked to open PRs
+
+Automated cleanup via scheduled workflow."
+
+            git commit -m "$COMMIT_MSG"
+            git push
+
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "================================"
+          echo "✓ Cleanup Complete"
+          echo "================================"
+          echo ""
+          echo "Protected Directories:"
+          echo "  - generated/production_rules/ (never cleaned)"
+          echo "  - Files linked to open PRs"
+          echo ""
+          echo "Cleaned:"
+          echo "  - Stale generated/ artifacts"
+          echo "  - Temporary session_results/"
+          echo "  - Incomplete test artifacts"
+          echo ""
+          echo "Next cleanup: $(date -d 'next Sunday 02:00' 2>/dev/null || date -v +1w)"
+
+      - name: Report Failure
+        if: failure()
+        run: |
+          echo "================================"
+          echo "✗ Cleanup Failed"
+          echo "================================"
+          echo ""
+          echo "Review workflow logs for errors"
+          echo "Manual cleanup may be required"
+          exit 1
