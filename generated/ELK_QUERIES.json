@@ -9,7 +9,20 @@
         }
       }
     },
-    "validation_score": 0.95,
+    "validation_score": 0.97,
+    "validated": true
+  },
+  "e8d9c0a1-7b6c-4f5d-8a4b-3c2d1e0f9a8b": {
+    "rule_title": "Akira File Encryption Extension Detected",
+    "lucene_query": "(event.code:11 AND file.name:*.akira*) AND (NOT (process.executable:(*explorer.exe* OR *unzip.exe* OR *7z.exe*)))",
+    "dsl_query": {
+      "query": {
+        "query_string": {
+          "query": "(event.code:11 AND file.name:*.akira*) AND (NOT (process.executable:(*explorer.exe* OR *unzip.exe* OR *7z.exe*)))"
+        }
+      }
+    },
+    "validation_score": 0.875,
     "validated": true
   },
   "f0e1d2c3-b4a5-46c7-88d9-e0f1a2b3c4d5": {
@@ -22,7 +35,7 @@
         }
       }
     },
-    "validation_score": 0.96,
+    "validation_score": 0.92,
     "validated": true
   }
 }

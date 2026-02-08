@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-02-08T14:49:54.908962",
+  "timestamp": "2026-02-08T15:00:02.778691",
   "total_rules": 7,
   "successful_conversions": 7,
-  "approved_queries": 2,
-  "rejected_queries": 5,
+  "approved_queries": 3,
+  "rejected_queries": 4,
   "validations": [
     {
       "valid": false,
@@ -12,7 +12,7 @@
       "issues": [
         "Failed to parse LLM validation response"
       ],
-      "error": "Unterminated string starting at: line 21 column 5 (char 1792)",
+      "error": "Unterminated string starting at: line 18 column 5 (char 1678)",
       "rule_id": "c1a7b8d9-0f1e-4d2c-8a3b-4e5f6a7b8c9d",
       "rule_title": "Akira Ransomware: Ransom Note Creation"
     },
@@ -21,27 +21,36 @@
       "syntax_score": 1.0,
       "field_mapping_score": 1.0,
       "logic_accuracy_score": 1.0,
-      "performance_score": 0.8,
-      "overall_score": 0.95,
+      "performance_score": 0.9,
+      "overall_score": 0.97,
       "issues": [],
-      "warnings": [
-        "The 'query_string' query is used. While functional, it is subject to text analysis which might not be desirable for exact value fields like 'event.code'. The parsing overhead is also slightly higher than a 'bool' query."
-      ],
+      "warnings": [],
       "recommendations": [
-        "For improved performance and to ensure exact matching, consider rewriting the query using a 'bool' query with 'filter' clauses. This bypasses the query parsing and analysis steps. Example: {\"query\": {\"bool\": {\"filter\": [{\"term\": {\"event.code\": \"11\"}}, {\"term\": {\"file.name.keyword\": \"akira_readme.txt\"}}]}}}. Note the use of '.keyword' on the file name field to ensure an exact, case-sensitive match against the unprocessed string."
+        "For optimal performance and to ensure strict, non-analyzed matching, it is best practice to use a `bool` query with `term` clauses instead of a `query_string` query. The equivalent `bool` query would be: `{\"query\": {\"bool\": {\"must\": [{\"term\": {\"event.code\": \"11\"}}, {\"term\": {\"file.name\": \"akira_readme.txt\"}}]}}}`"
       ],
       "decision": "APPROVE",
       "rule_id": "f5a2b1c3-6d9e-4a7b-8b1c-9d8e7f6a5b4c",
       "rule_title": "Akira Ransom Note Creation"
     },
     {
-      "valid": false,
-      "overall_score": 0.0,
-      "decision": "REJECT",
+      "valid": true,
+      "syntax_score": 1.0,
+      "field_mapping_score": 1.0,
+      "logic_accuracy_score": 1.0,
+      "performance_score": 0.5,
+      "overall_score": 0.875,
       "issues": [
-        "Failed to parse LLM validation response"
+        "Critical performance issue: The query uses leading wildcards (`*`) for `file.name` and `process.executable`. This requires scanning all terms in the index for those fields, which is highly inefficient and can cause significant performance degradation on large datasets. [9, 17]"
       ],
-      "error": "Unterminated string starting at: line 20 column 5 (char 1505)",
+      "warnings": [
+        "The `query_string` query is used, which is syntactically strict and can be brittle. [2, 11] For programmatically generated queries, it is often safer and more structured to use a native `bool` query to prevent potential parsing or injection issues. [7]"
+      ],
+      "recommendations": [
+        "Replace the `query_string` with a `bool` query containing `must` and `must_not` clauses for better structure and safety. [7, 10]",
+        "For the `file.name` match, consider if a more specific query can be used. If the goal is to match the file extension, a `wildcard` query like `*.akira` is slightly more performant than `*.akira*`. If your data contains a dedicated `file.extension` field, a `term` query like `file.extension: \"akira\"` would be vastly more efficient.",
+        "For the `process.executable` filter, instead of using a series of wildcard matches, consider matching against a `keyword` field if the full path is not necessary (e.g., using `process.name`). This would allow for faster `terms` lookups instead of expensive wildcard searches."
+      ],
+      "decision": "APPROVE",
       "rule_id": "e8d9c0a1-7b6c-4f5d-8a4b-3c2d1e0f9a8b",
       "rule_title": "Akira File Encryption Extension Detected"
     },
@@ -52,31 +61,18 @@
       "issues": [
         "Failed to parse LLM validation response"
       ],
-      "error": "Unterminated string starting at: line 20 column 5 (char 1593)",
+      "error": "Unterminated string starting at: line 19 column 5 (char 1829)",
       "rule_id": "f8a0b3c1-1e9d-4c5b-9a8f-2e3d7a6b4c10",
       "rule_title": "Akira Ransomware Note Creation"
     },
     {
-      "valid": true,
-      "syntax_score": 0.7,
-      "field_mapping_score": 1,
-      "logic_accuracy_score": 0.9,
-      "performance_score": 0.3,
-      "overall_score": 0.65,
-      "issues": [
-        "Critical performance issue: The query uses leading wildcards (e.g., `*delete shadows*`) in a `query_string` on keyword fields. This type of query is resource-intensive and can lead to slow performance as it must scan all terms in the field's index instead of using the inverted index efficiently. [6, 7]",
-        "Logic inaccuracy: The filter for `C:\\Windows\\System32\\svchost.exe` is an exact match, whereas the Sigma rule specifies a 'contains' operation. To accurately reflect the Sigma rule's logic, the value should be wrapped in wildcards (e.g., `*svchost.exe*`)."
-      ],
-      "warnings": [
-        "Overly complex query structure: The use of `query_string` with complex escaping for file paths makes the query difficult to read, maintain, and debug. [16]",
-        "Strict syntax: The `query_string` query is strict and will fail if there are any syntax errors in the string, making it less resilient than a `bool` query. [10, 16]"
-      ],
-      "recommendations": [
-        "It is highly recommended to rewrite this query using a structured `bool` query. This approach offers better performance, readability, and control. [1, 2] The selection criteria should be placed in the `must` clause, and the exclusion criteria in the `must_not` clause. The entire query can be wrapped in a `bool` filter context as scoring is not required for this type of detection rule. [5]",
-        "Replace the `query_string` with specific clauses. For `process.name`, use a `terms` query. For fields requiring substring matching like `process.command_line`, use a series of `wildcard` queries within a `should` clause. An even better performing alternative on analyzed text fields would be to use `match` queries for individual terms (e.g., `match 'delete'` AND `match 'shadows'`).",
-        "To correctly implement the 'contains' logic for the `svchost.exe` filter, change the term to `*C:\\\\Windows\\\\System32\\\\svchost.exe*` within a `wildcard` clause."
-      ],
+      "valid": false,
+      "overall_score": 0.0,
       "decision": "REJECT",
+      "issues": [
+        "Failed to parse LLM validation response"
+      ],
+      "error": "Unterminated string starting at: line 16 column 5 (char 1029)",
       "rule_id": "e2f7b1d4-8c8a-4d7a-8f6a-0d9c44b1b3e1",
       "rule_title": "Akira Ransomware Inhibit System Recovery via Command"
     },
@@ -87,7 +83,7 @@
       "issues": [
         "Failed to parse LLM validation response"
       ],
-      "error": "Unterminated string starting at: line 17 column 5 (char 1379)",
+      "error": "Expecting value: line 1 column 1 (char 0)",
       "rule_id": "d4e6f1a8-3b9c-4d5e-9f0a-1b2c3d4e5f6a",
       "rule_title": "Akira Ransomware: File Encryption Activity"
     },
@@ -95,15 +91,15 @@
       "valid": true,
       "syntax_score": 1.0,
       "field_mapping_score": 1.0,
-      "logic_accuracy_score": 0.9,
-      "performance_score": 0.95,
-      "overall_score": 0.96,
+      "logic_accuracy_score": 0.8,
+      "performance_score": 0.9,
+      "overall_score": 0.92,
       "issues": [],
       "warnings": [
-        "The 'query_string' query is subject to the field's analyzer. For exact matches on keyword fields, a 'term' query is more precise and avoids potential mismatches due to text analysis. [1, 4]"
+        "The 'query_string' query is subject to the field's text analyzer. If 'file.name' is an analyzed text field (not a 'keyword'), this could lead to unexpected matches (e.g., matching on 'akira' or 'readme' separately). An exact match was likely intended."
       ],
       "recommendations": [
-        "For higher precision and to guarantee an exact, non-analyzed match, replace the 'query_string' with a 'term' query. A best practice is to also target the '.keyword' subfield, like this: { \"query\": { \"term\": { \"file.name.keyword\": \"akira_readme.txt\" } } }"
+        "For a more precise and performant query that guarantees an exact match, use the 'term' query on a '.keyword' sub-field. This avoids the overhead and potential ambiguity of query string parsing and text analysis. The recommended query is: {\"query\": {\"term\": {\"file.name.keyword\": \"akira_readme.txt\"}}}"
       ],
       "decision": "APPROVE",
       "rule_id": "f0e1d2c3-b4a5-46c7-88d9-e0f1a2b3c4d5",
