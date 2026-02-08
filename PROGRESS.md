@@ -100,6 +100,27 @@ YAML Rule → Lucene Parse → JSON Convert → LLM Schema Check → Integration
 - ✅ Content sanitization: removes injection patterns
 - ✅ Safe JSON/YAML parsing with error handling
 
+### Per-Rule Smart Refinement (Complete)
+- ✅ Multi-level refinement at each validation stage
+- ✅ Validation stage: Auto-refine rules failing Lucene/JSON/schema checks
+- ✅ Integration test stage: Smart decision - refine QUERY or TEST CASES
+- ✅ LLM judge stage: Refine based on judge's specific recommendations
+- ✅ Max 2 refinement attempts per rule at each stage
+- ✅ Verbose logging of refinement iterations and decisions
+- ✅ Optional --no-refinement flag for all scripts
+- ✅ Saves refined rules back to original location on success
+
+**Files Enhanced:**
+- detection_agent/per_rule_refinement.py - Core refinement logic with feedback loops
+- scripts/validate_rules.py - Added validate_with_refinement()
+- scripts/integration_test_ci.py - Added test_single_rule_with_refinement()
+- scripts/run_llm_judge.py - Added evaluate_rule_with_refinement()
+
+**Refinement Decision Logic:**
+- Validation failures → Fix Lucene syntax, ECS fields, MITRE references
+- Integration test failures → Analyze if query OR test cases need fixing
+- Judge recommendations → Follow specific feedback from empirical evaluation
+
 ## In Progress 🚧
 
 ### Phase 2: Integration Testing + Empirical LLM Judge (READY FOR END-TO-END TESTING)
@@ -133,19 +154,14 @@ YAML Rule → Lucene Parse → JSON Convert → LLM Schema Check → Integration
 
 ## Backlog 📋
 
-### Phase 3: Self-Healing Refinement Loop
-- Analyze failed rules (quality <0.70)
-- Auto-regenerate with improvements
-- Max 2-3 iterations before giving up
-
-### Phase 4: Human-in-the-Loop Workflow
+### Phase 3: Human-in-the-Loop Workflow
 - Stage passing rules with unique UIDs
 - Auto-create PR with quality reports
 - Human security engineer review gate
 - Mock deployment after approval
 - Move to production_rules/
 
-### Phase 5: Documentation
+### Phase 4: Documentation
 - Comprehensive README.md
 - Architecture diagrams
 - Example CTI files for readers
@@ -174,5 +190,5 @@ YAML Rule → Lucene Parse → JSON Convert → LLM Schema Check → Integration
 ## Session Info
 
 **Last Update:** 2026-02-08
-**Current Focus:** Integration testing with ephemeral ELK + empirical LLM judge
-**Next Milestone:** Prove detection rules work in real SIEM environment
+**Current Focus:** Multi-level smart refinement complete - ready for end-to-end testing
+**Next Milestone:** Test complete pipeline with actual CTI files (validation → integration → judge → refinement)

@@ -312,6 +312,79 @@ async def validate_rule_pipeline(
     return results
 
 
+async def validate_with_refinement(
+    yaml_file: Path,
+    staging_dir: Path,
+    client,
+    max_refinement_attempts: int = 2
+) -> Dict:
+    """validate rule with automatic refinement on failures"""
+
+    from detection_agent.per_rule_refinement import refine_rule_with_feedback
+
+    original_file = yaml_file
+    current_rule_path = yaml_file
+
+    for refinement_iteration in range(max_refinement_attempts + 1):
+        if refinement_iteration > 0:
+            print(f"\n  🔄 Refinement iteration {refinement_iteration}/{max_refinement_attempts}")
+
+        #run validation pipeline
+        result = await validate_rule_pipeline(current_rule_path, staging_dir, client)
+
+        #if passed, we're done
+        if result['overall_pass']:
+            if refinement_iteration > 0:
+                print(f"  ✓ Rule passed after {refinement_iteration} refinement(s)")
+                #save refined rule back to original location
+                with open(current_rule_path) as f:
+                    refined_content = f.read()
+                with open(original_file, 'w') as f:
+                    f.write(refined_content)
+            return result
+
+        #if this was last attempt, give up
+        if refinement_iteration >= max_refinement_attempts:
+            print(f"  ✗ Rule failed after {max_refinement_attempts} refinement attempts")
+            return result
+
+        #prepare feedback for refinement
+        feedback = {
+            'step1_lucene': result['step1_lucene'],
+            'step2_conversion': result['step2_conversion'],
+            'step3_schema': result['step3_schema']
+        }
+
+        #load current rule
+        with open(current_rule_path) as f:
+            current_rule = yaml.safe_load(f)
+
+        #refine rule
+        refined_rule = await refine_rule_with_feedback(
+            client=client,
+            original_rule=current_rule,
+            feedback=feedback,
+            refinement_type='validation',
+            cti_content="",  #not needed for validation fixes
+            prompts={},
+            max_attempts=2
+        )
+
+        if not refined_rule:
+            print("  ✗ Refinement failed, giving up")
+            return result
+
+        #save refined rule to temp location
+        temp_refined = staging_dir / 'yaml' / f"{yaml_file.stem}_refined_{refinement_iteration}.yml"
+        temp_refined.parent.mkdir(parents=True, exist_ok=True)
+        with open(temp_refined, 'w') as f:
+            yaml.dump(refined_rule, f, default_flow_style=False, sort_keys=False)
+
+        current_rule_path = temp_refined
+
+    return result
+
+
 async def main():
     import argparse
     
@@ -352,10 +425,11 @@ async def main():
     #validate all rules
     yaml_files = list(rules_dir.glob("*.yml"))
     print(f"\nFound {len(yaml_files)} rules to validate")
-    
+
     all_results = []
     for yaml_file in yaml_files:
-        result = await validate_rule_pipeline(yaml_file, staging_dir, client)
+        #use validation with automatic refinement
+        result = await validate_with_refinement(yaml_file, staging_dir, client, max_refinement_attempts=2)
         all_results.append(result)
     
     #summary
