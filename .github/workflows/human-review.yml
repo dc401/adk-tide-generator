@@ -165,23 +165,114 @@ jobs:
 
           REPORT_EOF
 
-          #list rules with metadata
+          #list rules with detailed metadata
           for rule_file in generated/sigma_rules/*.yml; do
             if [ -f "$rule_file" ]; then
-              echo "#### $(basename "$rule_file")" >> /tmp/review_report.md
-              
-              #extract title and description
+              echo "---" >> /tmp/review_report.md
+              echo "" >> /tmp/review_report.md
+              echo "### 📋 Rule: \`$(basename "$rule_file")\`" >> /tmp/review_report.md
+              echo "" >> /tmp/review_report.md
+
+              #extract comprehensive metadata
               python3 << PYTHON_EOF >> /tmp/review_report.md
           import yaml
+          import json
+
           with open('$rule_file') as f:
               rule = yaml.safe_load(f)
+
           print(f"**Title:** {rule.get('title', 'N/A')}")
-          print(f"**Level:** {rule.get('level', 'N/A')}")
-          print(f"**Description:** {rule.get('description', 'N/A')}")
+          print(f"**Level:** `{rule.get('level', 'N/A')}`")
+          print(f"**Status:** `{rule.get('status', 'N/A')}`")
           print()
+
+          print(f"**Description:**")
+          print(f"> {rule.get('description', 'N/A')}")
+          print()
+
+          #MITRE ATT&CK tags
+          tags = rule.get('tags', [])
+          mitre_tags = [t for t in tags if t.startswith('attack.')]
+          if mitre_tags:
+              print("**MITRE ATT&CK:**")
+              for tag in mitre_tags:
+                  print(f"- `{tag}`")
+              print()
+
+          #references
+          refs = rule.get('references', [])
+          if refs:
+              print("**References:**")
+              for ref in refs:
+                  print(f"- {ref}")
+              print()
+
+          #false positives
+          fps = rule.get('falsepositives', [])
+          if fps:
+              print("**Known False Positives:**")
+              for fp in fps:
+                  print(f"- {fp}")
+              print()
+
+          #test scenarios if available
+          test_scenarios = rule.get('test_scenarios', {})
+          if test_scenarios:
+              print("<details>")
+              print("<summary><b>Test Scenarios</b> (click to expand)</summary>")
+              print()
+              print("**True Positive (TP):**")
+              print(f"```")
+              print(test_scenarios.get('true_positive', 'N/A'))
+              print(f"```")
+              print()
+              print("**False Negative (FN):**")
+              print(f"```")
+              print(test_scenarios.get('false_negative', 'N/A'))
+              print(f"```")
+              print()
+              print("**False Positive (FP):**")
+              print(f"```")
+              print(test_scenarios.get('false_positive', 'N/A'))
+              print(f"```")
+              print()
+              print("**True Negative (TN):**")
+              print(f"```")
+              print(test_scenarios.get('true_negative', 'N/A'))
+              print(f"```")
+              print()
+              print("</details>")
+              print()
+
+          #detection logic preview
+          detection = rule.get('detection', {})
+          if detection:
+              print("<details>")
+              print("<summary><b>Detection Logic</b> (click to expand)</summary>")
+              print()
+              print("```yaml")
+              print(yaml.dump({'detection': detection}, default_flow_style=False, sort_keys=False))
+              print("```")
+              print("</details>")
+              print()
+
           PYTHON_EOF
             fi
           done
+
+          #add files changed summary
+          cat << 'REPORT_EOF' >> /tmp/review_report.md
+
+          ---
+
+          ### 📁 Files Changed
+
+          REPORT_EOF
+
+          echo "\`\`\`" >> /tmp/review_report.md
+          find generated/production_rules -type f | sort >> /tmp/review_report.md
+          echo "\`\`\`" >> /tmp/review_report.md
+          echo "" >> /tmp/review_report.md
 
           cat << 'REPORT_EOF' >> /tmp/review_report.md
 
