@@ -2,7 +2,7 @@
 """
 CLI entry point for detection agent
 
-usage:
+Usage:
     python run_agent.py --interactive
     python run_agent.py --cti-folder path/to/cti --output generated/
 """
