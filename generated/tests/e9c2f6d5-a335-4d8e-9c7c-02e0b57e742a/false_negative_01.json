@@ -1,0 +1,16 @@
+{
+  "payload_type": "FN",
+  "description": "False Negative: Attacker uses a native PowerShell cmdlet to achieve the same goal of deleting shadow copies, bypassing the rule that only looks for specific executables.",
+  "log_entry": {
+    "EventID": 4688,
+    "Channel": "Security",
+    "Computer": "WKSTN-02.corp.contoso.com",
+    "User": "CORP\\RansomwareService",
+    "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "ParentImage": "C:\\Windows\\System32\\services.exe",
+    "CommandLine": "powershell.exe -Command \"Get-CimInstance -ClassName Win32_ShadowCopy | ForEach-Object { $_.Delete() }\""
+  },
+  "expected_alert": false,
+  "evasion_technique": "Uses a PowerShell cmdlet (`Get-CimInstance` and `.Delete()`) instead of the monitored executables (vssadmin, wmic, bcdedit).",
+  "timestamp": "2024-07-18T14:12:15.456Z"
+}

@@ -1,0 +1,15 @@
+{
+  "payload_type": "TP",
+  "description": "True Positive: An attacker uses WMIC to delete all shadow copies, a common ransomware precursor technique to inhibit system recovery.",
+  "log_entry": {
+    "EventID": 4688,
+    "Channel": "Security",
+    "Computer": "WKSTN-01.corp.contoso.com",
+    "User": "NT AUTHORITY\\SYSTEM",
+    "Image": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "CommandLine": "wmic.exe shadowcopy delete"
+  },
+  "expected_alert": true,
+  "timestamp": "2024-07-18T14:10:05.123Z"
+}

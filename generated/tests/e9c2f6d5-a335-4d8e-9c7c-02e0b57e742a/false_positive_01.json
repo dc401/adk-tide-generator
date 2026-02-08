@@ -1,0 +1,16 @@
+{
+  "payload_type": "FP",
+  "description": "False Positive: An administrator runs a script to disable recovery options before performing a major system upgrade, which is a legitimate but noisy action.",
+  "log_entry": {
+    "EventID": 4688,
+    "Channel": "Security",
+    "Computer": "SRV-BUILD-01.corp.contoso.com",
+    "User": "CORP\\buildadmin",
+    "Image": "C:\\Windows\\System32\\bcdedit.exe",
+    "ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "CommandLine": "bcdedit.exe /set {current} recoveryenabled No"
+  },
+  "expected_alert": true,
+  "legitimate_scenario": "A system administrator is using a standard deployment script to prepare a machine for an in-place OS upgrade, which requires disabling the recovery environment temporarily.",
+  "timestamp": "2024-07-18T14:14:25.789Z"
+}

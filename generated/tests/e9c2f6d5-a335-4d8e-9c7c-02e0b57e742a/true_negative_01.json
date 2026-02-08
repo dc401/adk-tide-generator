@@ -1,0 +1,16 @@
+{
+  "payload_type": "TN",
+  "description": "True Negative: A system administrator uses vssadmin.exe to list the current shadow copies for diagnostic purposes, a non-destructive read-only operation.",
+  "log_entry": {
+    "EventID": 4688,
+    "Channel": "Security",
+    "Computer": "FILESRV-03.corp.contoso.com",
+    "User": "CORP\\sysadmin",
+    "Image": "C:\\Windows\\System32\\vssadmin.exe",
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "CommandLine": "vssadmin list shadows"
+  },
+  "expected_alert": false,
+  "legitimate_scenario": "Routine administrative task to check the status and number of existing Volume Shadow Copies on a file server.",
+  "timestamp": "2024-07-18T14:16:35.912Z"
+}
