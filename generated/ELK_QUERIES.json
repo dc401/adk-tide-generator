@@ -1,15 +1,1 @@
-{
-  "d4e6f1a8-3b9c-4d5e-9f0a-1b2c3d4e5f6a": {
-    "rule_title": "Akira Ransomware: File Encryption Activity",
-    "lucene_query": "TargetFilename:*.akira AND (NOT (Image:(*\\\\explorer.exe OR *\\\\chrome.exe OR *\\\\firefox.exe OR *\\\\msedge.exe OR *\\\\powershell_ise.exe OR *\\\\Code.exe OR *\\\\notepad.exe OR *\\\\notepad\\+\\+.exe)))",
-    "dsl_query": {
-      "query": {
-        "query_string": {
-          "query": "TargetFilename:*.akira AND (NOT (Image:(*\\\\explorer.exe OR *\\\\chrome.exe OR *\\\\firefox.exe OR *\\\\msedge.exe OR *\\\\powershell_ise.exe OR *\\\\Code.exe OR *\\\\notepad.exe OR *\\\\notepad\\+\\+.exe)))"
-        }
-      }
-    },
-    "validation_score": 0.825,
-    "validated": true
-  }
-}
+{}

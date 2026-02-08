@@ -1,30 +1,18 @@
 {
-  "timestamp": "2026-02-08T03:07:22.785976",
+  "timestamp": "2026-02-08T03:12:21.214729",
   "total_rules": 3,
   "successful_conversions": 3,
-  "approved_queries": 1,
-  "rejected_queries": 2,
+  "approved_queries": 0,
+  "rejected_queries": 3,
   "validations": [
     {
-      "valid": true,
-      "syntax_score": 1,
-      "field_mapping_score": 0.7,
-      "logic_accuracy_score": 1,
-      "performance_score": 0.2,
-      "overall_score": 0.72,
-      "issues": [
-        "Critical performance issue: The query uses leading wildcards (`*`) for both `TargetFilename` and `Image` fields. Leading wildcard queries are extremely inefficient in Elasticsearch as they require scanning all terms in the index for those fields, which can lead to high CPU usage and slow query times. [2, 4, 6]"
-      ],
-      "warnings": [
-        "The field names `TargetFilename` and `Image` are not standard Elastic Common Schema (ECS) fields. For improved compatibility and normalization, consider mapping these to their ECS counterparts, `file.path` and `process.executable`, respectively, during data ingestion. [10, 13, 16, 20]",
-        "The query relies on `query_string`, which is syntactically strict and can fail if not perfectly formatted. [1, 11, 14] While correct here, a `bool` query with `wildcard` clauses is often more readable, robust, and less prone to parsing errors."
-      ],
-      "recommendations": [
-        "To mitigate the critical performance issue, avoid leading wildcards. If 'ends with' logic is essential, consider indexing a reversed version of the `Image` and `TargetFilename` fields and performing a wildcard query on the reversed text (e.g., `txt.emdaer_arika*`).",
-        "Alternatively, a more modern approach is to use the `wildcard` field type for these fields, which is specifically designed to improve the performance of such queries, though it comes with increased index size.",
-        "For better structure and safety, rewrite the query using the `bool` query construct with `must` and `must_not` clauses, containing individual `wildcard` queries for each condition. This does not fix the underlying performance issue but improves query manageability."
-      ],
+      "valid": false,
+      "overall_score": 0.0,
       "decision": "REJECT",
+      "issues": [
+        "Failed to parse LLM validation response"
+      ],
+      "error": "Unterminated string starting at: line 20 column 5 (char 1864)",
       "rule_id": "c1a7b8d9-0f1e-4d2c-8a3b-4e5f6a7b8c9d",
       "rule_title": "Akira Ransomware: Ransom Note Creation"
     },
@@ -35,28 +23,30 @@
       "issues": [
         "Failed to parse LLM validation response"
       ],
-      "error": "Unterminated string starting at: line 18 column 5 (char 1368)",
+      "error": "Unterminated string starting at: line 19 column 5 (char 1688)",
       "rule_id": "f8a0b3c1-1e9d-4c5b-9a8f-2e3d7a6b4c10",
       "rule_title": "Akira Ransomware Note Creation"
     },
     {
       "valid": true,
       "syntax_score": 1.0,
-      "field_mapping_score": 0.9,
+      "field_mapping_score": 0.7,
       "logic_accuracy_score": 1.0,
-      "performance_score": 0.4,
-      "overall_score": 0.825,
+      "performance_score": 0.2,
+      "overall_score": 0.725,
       "issues": [
-        "Performance: The query uses multiple leading wildcards (`*\\\\...`) within a `query_string`. Leading wildcards are highly inefficient as they require scanning all terms in the field's index, which can lead to slow query performance on large datasets. [2, 14, 15]",
-        "Performance: Using `query_string` is generally less performant than a structured `bool` query. The query string must be parsed and analyzed at query time, adding overhead that can be avoided with native DSL queries. [10]"
+        "Critical performance issue: The query uses leading wildcards (`*`) in `TargetFilename:*.akira` and `Image:*\\\\...`. This will result in very slow query performance as it requires scanning all terms in the index for these fields. [1, 10, 15]"
       ],
       "warnings": [
-        "Field Mapping: The query assumes the presence and correct mapping of `TargetFilename` and `Image` fields. The effectiveness of this query depends on the log source and the index mapping aligning with common schemas (e.g., ECS, Sysmon) that use these field names. If fields are named differently (e.g., `process.executable`, `file.path`), the query will fail to find results."
+        "Field names `TargetFilename` and `Image` are not ECS (Elastic Common Schema) compliant. The recommended ECS equivalents are `file.name` and `process.executable`, respectively. [5, 11, 12] Verify these fields exist in the target index mapping.",
+        "The `query_string` query is used, which can have complex and sometimes unexpected parsing behavior. [2, 18] A structured `bool` query with specific `wildcard` clauses would be more explicit and less prone to parsing errors."
       ],
       "recommendations": [
-        "To improve performance, convert the `query_string` into a native Elasticsearch `bool` query. Use a `must` clause with a `wildcard` query for `TargetFilename`. For the exclusion logic, use a `must_not` clause containing a nested `bool` query with a `should` array. Each element in the `should` array should be a `wildcard` query for the legitimate images (e.g., `{\"wildcard\": {\"Image\": \"*\\\\explorer.exe\"}}`). This approach is more performant and idiomatic for Elasticsearch."
+        "To improve query clarity and structure, rewrite the query using a `bool` query with `must` and `must_not` clauses containing explicit `wildcard` queries.",
+        "For significantly better performance, avoid leading wildcards. If 'endswith' functionality is essential, consider architectural changes during data ingestion, such as indexing a reversed version of the field values to allow for efficient prefix-based searches. [1, 10]",
+        "When using wildcard or other string-based queries, ensure they target a non-analyzed `keyword` field (e.g., `Image.keyword`) to prevent unexpected behavior from text analysis. [16]"
       ],
-      "decision": "APPROVE",
+      "decision": "REJECT",
       "rule_id": "d4e6f1a8-3b9c-4d5e-9f0a-1b2c3d4e5f6a",
       "rule_title": "Akira Ransomware: File Encryption Activity"
     }
