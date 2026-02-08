@@ -261,6 +261,8 @@ def main():
         conversion = convert_sigma_to_elk(rule_file)
         if not conversion.get('success'):
             print(f"    ✗ Conversion failed: {conversion.get('error')}")
+        else:
+            print(f"    → Lucene: {conversion['elk_lucene_query']}")
         conversions.append(conversion)
 
     successful_conversions = [c for c in conversions if c.get('success')]
