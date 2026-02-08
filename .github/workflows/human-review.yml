@@ -29,6 +29,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Dependencies
+        run: pip install pyyaml
+
       - name: Check for Passing Rules
         id: check
         run: |
