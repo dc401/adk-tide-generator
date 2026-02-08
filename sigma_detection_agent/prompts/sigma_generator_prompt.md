@@ -110,12 +110,14 @@ Use Sigma modifiers for flexible matching, but **AVOID patterns that cause perfo
 **✅ GOOD (Fast):**
 - `|startswith` - prefix match (e.g., `'Assume'` → fast index scan)
 - `|contains` - substring match (use sparingly, can be slow)
+- `|all` - ALL list items must match (rarely needed)
 - Exact match - fastest option when possible
 
 **❌ BAD (Extremely Slow - DO NOT USE):**
 - `|endswith` - **CONVERTS TO LEADING WILDCARD `*pattern` - CAUSES FULL TABLE SCANS**
 - `|re` with `^.*pattern` - same problem as endswith
 - Multiple wildcards in single field
+- **INVALID:** `|contains|any` or chained modifiers - Sigma doesn't support modifier chaining
 
 **CRITICAL PERFORMANCE RULE:**
 **NEVER use `|endswith` modifier. It converts to `*pattern` leading wildcard which requires scanning EVERY log entry. This can crash production SIEMs.**
@@ -131,9 +133,12 @@ Use Sigma modifiers for flexible matching, but **AVOID patterns that cause perfo
 detection:
     selection:
         eventName|startswith: 'Assume'  # ✅ Fast - index scan
-        eventName:  # ✅ Fast - exact match
+        eventName:  # ✅ Fast - exact match, OR logic for lists
             - 'AssumeRole'
             - 'AssumeRoleWithSAML'
+        command_line|contains:  # ✅ Match ANY item in list (automatic OR)
+            - 'delete shadows'
+            - 'shadowcopy delete'
 ```
 
 **Bad Example (DO NOT USE):**
@@ -141,6 +146,8 @@ detection:
 detection:
     selection:
         filename|endswith: '.txt'  # ❌ SLOW - full scan, avoid
+        command_line|contains|any:  # ❌ INVALID - no modifier chaining
+            - 'string1'
         filename|contains: 'readme'  # ⚠️ Slower but acceptable if specific enough
 ```
 
