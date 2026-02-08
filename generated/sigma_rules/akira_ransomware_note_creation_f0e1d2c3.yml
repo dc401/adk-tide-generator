@@ -19,7 +19,7 @@ logsource:
 detection:
   selection:
     file.name: akira_readme.txt
-  condition: selection and not filter_legitimate
+  condition: selection
 falsepositives:
 - A security researcher or sandbox environment intentionally creating the file to
   test detection capabilities.
