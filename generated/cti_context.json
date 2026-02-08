@@ -1,0 +1,10 @@
+{
+  "source_file": "sample_cti.md",
+  "threat_actor": "Akira",
+  "primary_ttps": [
+    "T1490",
+    "T1489",
+    "T1486"
+  ],
+  "target_environment": "Windows endpoints"
+}

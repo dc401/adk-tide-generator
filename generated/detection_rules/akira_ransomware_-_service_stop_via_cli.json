@@ -1,0 +1,190 @@
+{
+  "name": "Akira Ransomware - Service Stop via CLI",
+  "description": "Detects Akira ransomware's attempts to stop or disable critical services using command-line utilities. This action is typically performed to unlock files for encryption or disable security/backup software.",
+  "type": "query",
+  "query": "event.code:1 AND (process.name:(*net* OR *sc* OR *taskkill*) AND process.command_line:(*net*stop* OR *sc*config*start=*disabled* OR *taskkill*\\/F*\\/IM*))",
+  "language": "lucene",
+  "index": [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*"
+  ],
+  "filters": [],
+  "risk_score": 80,
+  "severity": "high",
+  "threat": [
+    {
+      "framework": "MITRE ATT&CK",
+      "tactic": {
+        "id": "TA0040",
+        "name": "Impact",
+        "reference": "https://attack.mitre.org/tactics/TA0040/"
+      },
+      "technique": [
+        {
+          "id": "T1489",
+          "name": "Service Stop",
+          "reference": "https://attack.mitre.org/techniques/T1489/"
+        }
+      ]
+    }
+  ],
+  "references": [
+    "https://attack.mitre.org/techniques/T1489/",
+    "https://www.elastic.co/guide/en/ecs/current/ecs-process.html",
+    "https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html"
+  ],
+  "author": [
+    "Detection Agent"
+  ],
+  "false_positives": [
+    "System administrators performing service maintenance or troubleshooting",
+    "Legitimate software installers/uninstallers stopping services"
+  ],
+  "note": "## Triage\nInvestigate: parent process, user context, timing, and the specific service being stopped/disabled. Correlate with other suspicious activity.\nEscalate if: executed by non-admin, from an unusual parent process, targeting security/backup services, or in conjunction with other suspicious activity.",
+  "test_cases": [
+    {
+      "type": "TP",
+      "description": "Malicious net stop command",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "net.exe",
+          "command_line": "net stop \"Veeam Backup Service\" /y",
+          "executable": "C:\\Windows\\System32\\net.exe"
+        },
+        "@timestamp": "2024-03-12T22:20:00Z"
+      },
+      "expected_match": true,
+      "evasion_technique": null
+    },
+    {
+      "type": "TP",
+      "description": "Malicious sc config to disable service",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "sc.exe",
+          "command_line": "sc config \"Sophos Agent\" start= disabled",
+          "executable": "C:\\Windows\\System32\\sc.exe"
+        },
+        "@timestamp": "2024-03-12T22:20:10Z"
+      },
+      "expected_match": true,
+      "evasion_technique": null
+    },
+    {
+      "type": "TP",
+      "description": "Malicious taskkill command",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "taskkill.exe",
+          "command_line": "taskkill /F /IM sqlservr.exe",
+          "executable": "C:\\Windows\\System32\\taskkill.exe"
+        },
+        "@timestamp": "2024-03-12T22:20:20Z"
+      },
+      "expected_match": true,
+      "evasion_technique": null
+    },
+    {
+      "type": "FN",
+      "description": "PowerShell Stop-Service cmdlet evasion",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "powershell.exe",
+          "command_line": "powershell.exe -Command \"Stop-Service -Name 'Veeam Backup Service'\"",
+          "executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        },
+        "@timestamp": "2024-03-12T22:21:00Z"
+      },
+      "expected_match": false,
+      "evasion_technique": "Uses PowerShell cmdlet instead of direct net.exe, sc.exe, or taskkill.exe. This rule focuses on specific command-line utilities."
+    },
+    {
+      "type": "FN",
+      "description": "Evasion by renaming net.exe",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "custom_net.exe",
+          "command_line": "custom_net.exe stop \"Veeam Backup Service\" /y",
+          "executable": "C:\\Windows\\Temp\\custom_net.exe"
+        },
+        "@timestamp": "2024-03-12T22:21:10Z"
+      },
+      "expected_match": false,
+      "evasion_technique": "The net.exe executable was renamed, bypassing detection based on process.name."
+    },
+    {
+      "type": "FP",
+      "description": "Administrator starting a service",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "net.exe",
+          "command_line": "net start \"Print Spooler\"",
+          "executable": "C:\\Windows\\System32\\net.exe"
+        },
+        "@timestamp": "2024-03-14T10:15:00Z"
+      },
+      "expected_match": false,
+      "evasion_technique": null
+    },
+    {
+      "type": "FP",
+      "description": "Administrator querying service configuration",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "sc.exe",
+          "command_line": "sc query \"Dnscache\"",
+          "executable": "C:\\Windows\\System32\\sc.exe"
+        },
+        "@timestamp": "2024-03-14T10:20:00Z"
+      },
+      "expected_match": false,
+      "evasion_technique": null
+    },
+    {
+      "type": "TN",
+      "description": "Normal system activity (notepad.exe)",
+      "log_entry": {
+        "event": {
+          "code": 1,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "process": {
+          "name": "notepad.exe",
+          "command_line": "C:\\Windows\\System32\\notepad.exe",
+          "executable": "C:\\Windows\\System32\\notepad.exe"
+        },
+        "@timestamp": "2024-03-14T10:25:00Z"
+      },
+      "expected_match": false,
+      "evasion_technique": null
+    }
+  ]
+}

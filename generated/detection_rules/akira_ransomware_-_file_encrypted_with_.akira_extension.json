@@ -1,0 +1,160 @@
+{
+  "name": "Akira Ransomware - File Encrypted with .akira Extension",
+  "description": "Detects the creation of files with the '.akira' extension, a strong indicator of successful data encryption by Akira ransomware. This rule monitors Sysmon Event ID 11 (FileCreate).",
+  "type": "query",
+  "query": "event.code:11 AND file.extension:akira",
+  "language": "lucene",
+  "index": [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*"
+  ],
+  "filters": [],
+  "risk_score": 95,
+  "severity": "critical",
+  "threat": [
+    {
+      "framework": "MITRE ATT&CK",
+      "tactic": {
+        "id": "TA0040",
+        "name": "Impact",
+        "reference": "https://attack.mitre.org/tactics/TA0040/"
+      },
+      "technique": [
+        {
+          "id": "T1486",
+          "name": "Data Encrypted for Impact",
+          "reference": "https://attack.mitre.org/techniques/T1486/"
+        }
+      ]
+    }
+  ],
+  "references": [
+    "https://attack.mitre.org/techniques/T1486/",
+    "https://www.elastic.co/guide/en/ecs/current/ecs-file.html",
+    "https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html"
+  ],
+  "author": [
+    "Detection Agent"
+  ],
+  "false_positives": [
+    "Extremely unlikely, as '.akira' is a unique ransomware extension. Investigate any occurrences immediately."
+  ],
+  "note": "## Triage\nInvestigate: the process responsible for file creation, the full file path, and the user context. This is a critical alert indicating active ransomware encryption.\nEscalate immediately: This is a confirmed ransomware infection.",
+  "test_cases": [
+    {
+      "type": "TP",
+      "description": "File encrypted with .akira extension",
+      "log_entry": {
+        "event": {
+          "code": 11,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "file": {
+          "name": "document.docx.akira",
+          "extension": "akira",
+          "path": "C:\\Users\\victim\\Documents\\document.docx.akira",
+          "full_path": "C:\\Users\\victim\\Documents\\document.docx.akira"
+        },
+        "process": {
+          "name": "akira_ransom.exe",
+          "executable": "C:\\ProgramData\\akira_ransom.exe"
+        },
+        "@timestamp": "2024-03-12T22:30:00Z"
+      },
+      "expected_match": true,
+      "evasion_technique": null
+    },
+    {
+      "type": "TP",
+      "description": "Another file encrypted with .akira extension in a different directory",
+      "log_entry": {
+        "event": {
+          "code": 11,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "file": {
+          "name": "database.sql.akira",
+          "extension": "akira",
+          "path": "D:\\Shares\\database.sql.akira",
+          "full_path": "D:\\Shares\\database.sql.akira"
+        },
+        "process": {
+          "name": "akira_ransom.exe",
+          "executable": "C:\\ProgramData\\akira_ransom.exe"
+        },
+        "@timestamp": "2024-03-12T22:30:15Z"
+      },
+      "expected_match": true,
+      "evasion_technique": null
+    },
+    {
+      "type": "FN",
+      "description": "Ransomware uses a different, unknown extension",
+      "log_entry": {
+        "event": {
+          "code": 11,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "file": {
+          "name": "image.jpg.newext",
+          "extension": "newext",
+          "path": "C:\\Users\\victim\\Pictures\\image.jpg.newext",
+          "full_path": "C:\\Users\\victim\\Pictures\\image.jpg.newext"
+        },
+        "process": {
+          "name": "akira_ransom.exe",
+          "executable": "C:\\ProgramData\\akira_ransom.exe"
+        },
+        "@timestamp": "2024-03-12T22:31:00Z"
+      },
+      "expected_match": false,
+      "evasion_technique": "Ransomware used a different file extension, not '.akira', bypassing this specific rule. Requires updating the rule with new extensions."
+    },
+    {
+      "type": "FP",
+      "description": "Legitimate software creating a file with an unusual but non-malicious extension (hypothetical)",
+      "log_entry": {
+        "event": {
+          "code": 11,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "file": {
+          "name": "report.akira_draft",
+          "extension": "akira_draft",
+          "path": "C:\\Program Files\\App\\report.akira_draft",
+          "full_path": "C:\\Program Files\\App\\report.akira_draft"
+        },
+        "process": {
+          "name": "legit_app.exe",
+          "executable": "C:\\Program Files\\App\\legit_app.exe"
+        },
+        "@timestamp": "2024-03-14T10:40:00Z"
+      },
+      "expected_match": false,
+      "evasion_technique": null
+    },
+    {
+      "type": "TN",
+      "description": "Normal file creation (document)",
+      "log_entry": {
+        "event": {
+          "code": 11,
+          "provider": "Microsoft-Windows-Sysmon"
+        },
+        "file": {
+          "name": "meeting_notes.txt",
+          "extension": "txt",
+          "path": "C:\\Users\\user\\Documents\\meeting_notes.txt",
+          "full_path": "C:\\Users\\user\\Documents\\meeting_notes.txt"
+        },
+        "process": {
+          "name": "notepad.exe",
+          "executable": "C:\\Windows\\System32\\notepad.exe"
+        },
+        "@timestamp": "2024-03-14T10:45:00Z"
+      },
+      "expected_match": false,
+      "evasion_technique": null
+    }
+  ]
+}
