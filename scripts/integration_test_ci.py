@@ -325,14 +325,8 @@ def main():
     if not wait_for_elasticsearch(args.es_url):
         return 1
 
-    #create ES client with compatibility for ES 8.x
-    es = Elasticsearch(
-        [args.es_url],
-        headers={
-            'accept': 'application/vnd.elasticsearch+json; compatible-with=8',
-            'content-type': 'application/vnd.elasticsearch+json; compatible-with=8'
-        }
-    )
+    #create ES client (using elasticsearch-py 8.x for ES 8.12.0 compatibility)
+    es = Elasticsearch([args.es_url])
 
     #convert sigma rules
     queries = convert_sigma_to_elasticsearch(rules_dir)
