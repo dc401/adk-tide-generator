@@ -29,12 +29,11 @@ except ImportError:
     sys.exit(1)
 
 try:
-    import vertexai
-    from vertexai.generative_models import GenerativeModel, Tool
-    from vertexai.preview.generative_models import grounding
+    from google import genai
+    from google.genai import types
 except ImportError:
-    print("ERROR: google-cloud-aiplatform not installed")
-    print("Run: pip install google-cloud-aiplatform")
+    print("ERROR: google-genai not installed")
+    print("Run: pip install google-genai")
     sys.exit(1)
 
 VALIDATION_PROMPT = """You are an Elasticsearch query expert.
@@ -108,7 +107,7 @@ def convert_sigma_to_elk(sigma_rule_path: Path) -> Dict:
             'rule_file': str(sigma_rule_path)
         }
 
-def validate_elk_query(conversion: Dict, model) -> Dict:
+def validate_elk_query(conversion: Dict, client, model_name: str) -> Dict:
     """validate ELK query using Gemini with Google Search grounding"""
 
     if not conversion.get('success'):
@@ -155,14 +154,13 @@ Research Elasticsearch 8.x documentation if needed to verify syntax and field co
     print(f"  Validating: {rule_title[:60]}...")
 
     try:
-        #use Gemini with Google Search grounding for documentation research
-        google_search_tool = Tool.from_google_search_retrieval(
-            grounding.GoogleSearchRetrieval()
-        )
-
-        response = model.generate_content(
-            prompt,
-            tools=[google_search_tool]
+        #use Gemini with Google Search for documentation research
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())]
+            )
         )
 
         response_text = response.text
@@ -232,11 +230,18 @@ def main():
         print("ERROR: GCP project ID not provided")
         return 1
 
+    #enable Vertex AI mode
+    os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'true'
+
     print(f"Using Vertex AI: {project_id} ({args.location})")
-    vertexai.init(project=project_id, location=args.location)
+    client = genai.Client(
+        vertexai=True,
+        project=project_id,
+        location=args.location
+    )
 
     #use Gemini 2.5 Pro for research + validation
-    model = GenerativeModel('gemini-2.5-pro')
+    model_name = 'gemini-2.5-pro'
 
     print(f"\n{'='*80}")
     print("SIGMA → ELASTICSEARCH CONVERTER + VALIDATOR")
@@ -262,7 +267,7 @@ def main():
     validations = []
 
     for conversion in successful_conversions:
-        validation = validate_elk_query(conversion, model)
+        validation = validate_elk_query(conversion, client, model_name)
         validation['rule_id'] = conversion.get('rule_id')
         validation['rule_title'] = conversion.get('rule_title')
         validations.append(validation)

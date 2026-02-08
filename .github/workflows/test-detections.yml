@@ -60,7 +60,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install google-cloud-aiplatform pysigma pysigma-backend-elasticsearch pyyaml
+          pip install google-genai pysigma pysigma-backend-elasticsearch pyyaml
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2

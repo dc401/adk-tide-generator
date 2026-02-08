@@ -17,11 +17,11 @@ from typing import Dict, List
 from datetime import datetime
 
 try:
-    import vertexai
-    from vertexai.generative_models import GenerativeModel
+    from google import genai
+    from google.genai import types
 except ImportError:
-    print("ERROR: google-cloud-aiplatform library not installed")
-    print("Run: pip install google-cloud-aiplatform")
+    print("ERROR: google-genai library not installed")
+    print("Run: pip install google-genai")
     sys.exit(1)
 
 def load_judge_prompt() -> str:
@@ -92,7 +92,7 @@ def load_test_payloads(tests_dir: Path, rule_id: str) -> Dict:
 
     return test_scenarios
 
-def evaluate_rule(rule_id: str, rule: Dict, test_results: Dict, test_payloads: Dict, model) -> Dict:
+def evaluate_rule(rule_id: str, rule: Dict, test_results: Dict, test_payloads: Dict, client, model_name: str) -> Dict:
     """evaluate single rule using LLM judge"""
 
     #prepare input for judge
@@ -128,7 +128,10 @@ Provide your evaluation in the exact JSON format specified in the rubric.
     print(f"  Evaluating: {rule.get('title')[:60]}...")
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt
+        )
 
         #extract JSON from response
         response_text = response.text
@@ -367,7 +370,7 @@ def main():
         print(f"ERROR: Test results not found: {results_file}")
         return 1
 
-    #setup Vertex AI (uses ADC - Application Default Credentials)
+    #setup Vertex AI via google-genai SDK (uses ADC - Application Default Credentials)
     project_id = args.project or os.environ.get('GOOGLE_CLOUD_PROJECT')
 
     if not project_id:
@@ -376,13 +379,20 @@ def main():
         print("\nTip: gcloud config get-value project")
         return 1
 
+    #enable Vertex AI mode
+    os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'true'
+
     print(f"Using Vertex AI in project: {project_id} (region: {args.location})")
     print(f"Authentication: Application Default Credentials")
 
-    vertexai.init(project=project_id, location=args.location)
+    client = genai.Client(
+        vertexai=True,
+        project=project_id,
+        location=args.location
+    )
 
-    #use Gemini 2.5 Pro for evaluation
-    model = GenerativeModel('gemini-2.5-pro')
+    #use Gemini 2.5 Flash for cost-efficient evaluation
+    model_name = 'gemini-2.5-flash'
 
     print(f"\n{'='*80}")
     print("LLM JUDGE: DETECTION RULE QUALITY EVALUATION")
@@ -416,7 +426,7 @@ def main():
         rule = rules[rule_id]
         test_payloads = load_test_payloads(tests_dir, rule_id)
 
-        evaluation = evaluate_rule(rule_id, rule, results, test_payloads, model)
+        evaluation = evaluate_rule(rule_id, rule, results, test_payloads, client, model_name)
         evaluations.append(evaluation)
 
     print(f"  ✓ Evaluated {len(evaluations)} rules")

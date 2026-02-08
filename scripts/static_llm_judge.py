@@ -20,11 +20,11 @@ from typing import Dict, List
 from datetime import datetime
 
 try:
-    import vertexai
-    from vertexai.generative_models import GenerativeModel
+    from google import genai
+    from google.genai import types
 except ImportError:
-    print("ERROR: google-cloud-aiplatform library not installed")
-    print("Run: pip install google-cloud-aiplatform")
+    print("ERROR: google-genai library not installed")
+    print("Run: pip install google-genai")
     sys.exit(1)
 
 STATIC_JUDGE_PROMPT = """You are a detection engineering expert evaluating Sigma detection rules.
@@ -114,7 +114,7 @@ def load_test_payloads(tests_dir: Path) -> Dict:
 
     return test_metadata
 
-def evaluate_rule_static(rule_id: str, rule_data: Dict, test_scenarios: Dict, model) -> Dict:
+def evaluate_rule_static(rule_id: str, rule_data: Dict, test_scenarios: Dict, client, model_name: str) -> Dict:
     """evaluate rule statically (no integration test results)"""
 
     rule = rule_data['yaml']
@@ -146,7 +146,10 @@ Provide evaluation in JSON format as specified above."""
     print(f"  Evaluating: {rule.get('title', 'Unknown')[:60]}...")
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt
+        )
         response_text = response.text
 
         #extract JSON
@@ -264,17 +267,24 @@ def main():
         print(f"ERROR: Rules directory not found: {rules_dir}")
         return 1
 
-    #setup Vertex AI
+    #setup Vertex AI via google-genai SDK
     project_id = args.project or os.environ.get('GOOGLE_CLOUD_PROJECT')
 
     if not project_id:
         print("ERROR: GCP project ID not provided")
         return 1
 
-    print(f"Using Vertex AI: {project_id} ({args.location})")
-    vertexai.init(project=project_id, location=args.location)
+    #enable Vertex AI mode
+    os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'true'
 
-    model = GenerativeModel('gemini-2.5-pro')
+    print(f"Using Vertex AI: {project_id} ({args.location})")
+    client = genai.Client(
+        vertexai=True,
+        project=project_id,
+        location=args.location
+    )
+
+    model_name = 'gemini-2.5-flash'  #using flash for cost-efficiency in judge
 
     print(f"\n{'='*80}")
     print("STATIC LLM JUDGE: PRE-FILTER EVALUATION")
@@ -299,7 +309,7 @@ def main():
         rule_prefix = rule_id[:8]
         test_scenarios = test_metadata.get(rule_prefix, {})
 
-        evaluation = evaluate_rule_static(rule_id, rule_data, test_scenarios, model)
+        evaluation = evaluate_rule_static(rule_id, rule_data, test_scenarios, client, model_name)
         evaluations.append(evaluation)
 
     print(f"  ✓ Evaluated {len(evaluations)} rules")

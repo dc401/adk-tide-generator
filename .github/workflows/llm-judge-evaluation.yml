@@ -25,7 +25,7 @@ jobs:
         run: |
           echo "Installing dependencies..."
 
-          pip install google-cloud-aiplatform pysigma pysigma-backend-elasticsearch pyyaml
+          pip install google-genai pysigma pysigma-backend-elasticsearch pyyaml
           echo "✓ Dependencies installed successfully"
 
 
