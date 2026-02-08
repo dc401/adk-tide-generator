@@ -90,9 +90,15 @@ async def generate_with_retry(client, model_config: Dict, prompt: str,
                               system_instruction: str = None,
                               tools: list = None,
                               temperature: float = None,
-                              max_retries: int = 3,
-                              timeout: int = 300) -> str:
-    """generate content with exponential backoff retry and timeout"""
+                              max_retries: int = 2,
+                              timeout: int = 60) -> str:
+    """generate content with exponential backoff retry and timeout
+
+    Fail-fast configuration:
+    - 60s timeout per attempt (not 5min)
+    - 2 retries max (not 3)
+    - Exit immediately on errors
+    """
 
     model_name = model_config['name']
     retry_config = model_config['retry_config']
