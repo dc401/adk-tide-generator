@@ -149,10 +149,13 @@ jobs:
           sudo sed -i 's/#network.host: .*/network.host: 0.0.0.0/' /etc/elasticsearch/elasticsearch.yml
           sudo sed -i 's/xpack.security.enabled: .*/xpack.security.enabled: false/' /etc/elasticsearch/elasticsearch.yml
 
-          #add discovery type if not exists
+          #add discovery type and remove conflicting cluster.initial_master_nodes
           if ! grep -q "discovery.type" /etc/elasticsearch/elasticsearch.yml; then
             echo "discovery.type: single-node" | sudo tee -a /etc/elasticsearch/elasticsearch.yml
           fi
+
+          #comment out cluster.initial_master_nodes (conflicts with single-node)
+          sudo sed -i 's/^cluster.initial_master_nodes:/#cluster.initial_master_nodes:/' /etc/elasticsearch/elasticsearch.yml
 
           #set JVM heap size (512MB for GitHub runners)
           sudo sed -i 's/-Xms1g/-Xms512m/g' /etc/elasticsearch/jvm.options
