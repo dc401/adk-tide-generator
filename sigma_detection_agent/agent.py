@@ -290,11 +290,11 @@ payload_generator_agent = Agent(
 
     ## Payload Naming Convention
 
-    Name each payload file: `{category}_{number}.json`
-    - `tp_01.json`, `tp_02.json` - True Positives
-    - `fn_01.json` - False Negative
-    - `fp_01.json`, `fp_02.json` - False Positives
-    - `tn_01.json`, `tn_02.json`, `tn_03.json` - True Negatives
+    Name each payload file based on payload_type + number:
+    - `tp_01.json`, `tp_02.json` - True Positives (payload_type="TP")
+    - `fn_01.json` - False Negative (payload_type="FN")
+    - `fp_01.json`, `fp_02.json` - False Positives (payload_type="FP")
+    - `tn_01.json`, `tn_02.json`, `tn_03.json` - True Negatives (payload_type="TN")
 
     ## Important Notes
 
