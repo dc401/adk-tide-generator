@@ -13,8 +13,10 @@
       "command_line": "vssadmin.exe delete shadows /for=\\\\\\?\\Volume{...} /oldest",
       "parent": {
         "executable": "C:\\Program Files\\Veeam\\Backup and Replication\\Veeam.Backup.Manager.exe",
-        "command_line": "\"C:\\Program Files\\Veeam\\Backup and Replication\\Veeam.Backup.Manager.exe\""
-      }
+        "command_line": "\"C:\\Program Files\\Veeam\\Backup and Replication\\Veeam.Backup.Manager.exe\"",
+        "name": "Veeam.Backup.Manager.exe"
+      },
+      "name": "vssadmin.exe"
     },
     "user": {
       "name": "NT AUTHORITY\\SYSTEM"

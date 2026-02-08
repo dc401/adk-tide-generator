@@ -13,8 +13,10 @@
       "command_line": "wmic.exe shadowcopy delete",
       "parent": {
         "executable": "C:\\Program Files\\Altaro\\Altaro Backup\\Altaro.Backup.Service.exe",
-        "command_line": "\"C:\\Program Files\\Altaro\\Altaro Backup\\Altaro.Backup.Service.exe\""
-      }
+        "command_line": "\"C:\\Program Files\\Altaro\\Altaro Backup\\Altaro.Backup.Service.exe\"",
+        "name": "Altaro.Backup.Service.exe"
+      },
+      "name": "WMIC.exe"
     },
     "user": {
       "name": "NT AUTHORITY\\SYSTEM"

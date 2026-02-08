@@ -13,8 +13,10 @@
       "command_line": "bcdedit.exe /set {default} recoveryenabled No",
       "parent": {
         "executable": "C:\\Windows\\System32\\cmd.exe",
-        "command_line": "cmd /c \"bcdedit /set {default} recoveryenabled no\""
-      }
+        "command_line": "cmd /c \"bcdedit /set {default} recoveryenabled no\"",
+        "name": "cmd.exe"
+      },
+      "name": "bcdedit.exe"
     },
     "user": {
       "name": "WORKSTATION1\\maladmin"

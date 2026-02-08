@@ -13,8 +13,10 @@
       "command_line": "vssadmin.exe delete shadows /all /quiet",
       "parent": {
         "executable": "C:\\Users\\victim\\AppData\\Local\\Temp\\runner.exe",
-        "command_line": "C:\\Users\\victim\\AppData\\Local\\Temp\\runner.exe -cleanup"
-      }
+        "command_line": "C:\\Users\\victim\\AppData\\Local\\Temp\\runner.exe -cleanup",
+        "name": "runner.exe"
+      },
+      "name": "vssadmin.exe"
     },
     "user": {
       "name": "NT AUTHORITY\\SYSTEM"

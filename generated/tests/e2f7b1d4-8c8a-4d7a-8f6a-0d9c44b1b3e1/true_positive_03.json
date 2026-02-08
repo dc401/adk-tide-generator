@@ -13,8 +13,10 @@
       "command_line": "wmic.exe shadowcopy delete /nointeractive",
       "parent": {
         "executable": "C:\\Users\\Public\\update.exe",
-        "command_line": "C:\\Users\\Public\\update.exe"
-      }
+        "command_line": "C:\\Users\\Public\\update.exe",
+        "name": "update.exe"
+      },
+      "name": "WMIC.exe"
     },
     "user": {
       "name": "NT AUTHORITY\\SYSTEM"

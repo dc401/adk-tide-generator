@@ -13,8 +13,10 @@
       "command_line": "powershell.exe -c \"Get-CimInstance -ClassName Win32_ShadowCopy | ForEach-Object { $_.Delete() }\"",
       "parent": {
         "executable": "C:\\Perflogs\\payload.exe",
-        "command_line": "C:\\Perflogs\\payload.exe"
-      }
+        "command_line": "C:\\Perflogs\\payload.exe",
+        "name": "payload.exe"
+      },
+      "name": "powershell.exe"
     },
     "user": {
       "name": "NT AUTHORITY\\SYSTEM"

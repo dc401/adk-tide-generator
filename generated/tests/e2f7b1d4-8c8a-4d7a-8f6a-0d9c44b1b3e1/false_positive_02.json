@@ -13,8 +13,10 @@
       "command_line": "bcdedit.exe /set {current} recoveryenabled No",
       "parent": {
         "executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "command_line": "powershell.exe -File C:\\IT-Scripts\\OS_Upgrade_Prep.ps1"
-      }
+        "command_line": "powershell.exe -File C:\\IT-Scripts\\OS_Upgrade_Prep.ps1",
+        "name": "powershell.exe"
+      },
+      "name": "bcdedit.exe"
     },
     "user": {
       "name": "CONTOSO\\deployadmin"

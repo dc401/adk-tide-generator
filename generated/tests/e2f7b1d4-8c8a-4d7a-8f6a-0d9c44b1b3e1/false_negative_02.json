@@ -13,8 +13,10 @@
       "command_line": "C:\\Users\\victim\\AppData\\Local\\Temp\\updater.exe delete shadows /all",
       "parent": {
         "executable": "C:\\Windows\\System32\\cmd.exe",
-        "command_line": "cmd.exe"
-      }
+        "command_line": "cmd.exe",
+        "name": "cmd.exe"
+      },
+      "name": "updater.exe"
     },
     "user": {
       "name": "WORKSTATION1\\victim"
