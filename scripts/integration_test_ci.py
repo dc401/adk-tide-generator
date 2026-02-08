@@ -133,10 +133,14 @@ def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
 
             total_ingested += 1
 
-    #refresh index
+    #refresh index to make documents searchable
     es.indices.refresh(index=index_name)
 
+    #wait for index to stabilize after refresh
     print(f"  ✓ Ingested {total_ingested} test payloads")
+    print("  Waiting 3s for index to stabilize...")
+    time.sleep(3)
+
     return payload_map
 
 def run_detection_queries(es: Elasticsearch, queries: Dict, index_name: str = "test-logs") -> Dict:
