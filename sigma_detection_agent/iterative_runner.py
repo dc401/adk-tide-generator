@@ -531,13 +531,36 @@ Output as structured TestValidationOutput JSON."""
         clean_payloads = extract_json_from_event(state.get('formatted_payloads', ''))
         payloads_data = json.loads(clean_payloads) if isinstance(clean_payloads, str) else clean_payloads
 
-        if payloads_data and 'test_payloads' in payloads_data:
+        #handle TestPayloadSet schema structure
+        #payloads_data can be:
+        # - Single TestPayloadSet: {'rule_id': ..., 'payloads': [...]}
+        # - List of TestPayloadSet: [{'rule_id': ..., 'payloads': [...]}, ...]
+        # - Wrapper with test_payloads: {'test_payloads': [...]}
+
+        test_payload_sets = []
+
+        if payloads_data:
+            if isinstance(payloads_data, list):
+                #list of TestPayloadSet objects
+                test_payload_sets = payloads_data
+            elif isinstance(payloads_data, dict):
+                if 'test_payloads' in payloads_data:
+                    #wrapped format
+                    test_payload_sets = payloads_data['test_payloads']
+                elif 'payloads' in payloads_data:
+                    #single TestPayloadSet
+                    test_payload_sets = [payloads_data]
+                elif 'rule_id' in payloads_data:
+                    #single TestPayloadSet (legacy)
+                    test_payload_sets = [payloads_data]
+
+        if test_payload_sets:
             #create tests directory
             tests_dir = output_path / 'tests'
             tests_dir.mkdir(exist_ok=True)
 
             #save test payloads organized by rule
-            for rule_test in payloads_data['test_payloads']:
+            for rule_test in test_payload_sets:
                 rule_id = rule_test.get('rule_id', 'unknown')
                 safe_rule_id = "".join(c for c in rule_id if c.isalnum() or c in ('_', '-'))[:50]
 
@@ -545,9 +568,31 @@ Output as structured TestValidationOutput JSON."""
                 rule_test_dir = tests_dir / safe_rule_id
                 rule_test_dir.mkdir(exist_ok=True)
 
-                #save each test type
-                for test_type in ['true_positive', 'false_negative', 'false_positive', 'true_negative']:
-                    payloads = rule_test.get(test_type, [])
+                #handle TestPayloadSet schema: payloads is a list with payload_type field
+                payloads_list = rule_test.get('payloads', [])
+
+                #group by payload_type
+                payload_groups = {
+                    'TP': [],
+                    'FN': [],
+                    'FP': [],
+                    'TN': []
+                }
+
+                for payload in payloads_list:
+                    ptype = payload.get('payload_type', 'TP')
+                    payload_groups[ptype].append(payload)
+
+                #save grouped payloads
+                type_mapping = {
+                    'TP': 'true_positive',
+                    'FN': 'false_negative',
+                    'FP': 'false_positive',
+                    'TN': 'true_negative'
+                }
+
+                for ptype, payloads in payload_groups.items():
+                    test_type = type_mapping[ptype]
                     for idx, payload in enumerate(payloads, 1):
                         test_file = rule_test_dir / f"{test_type}_{idx:02d}.json"
                         with open(test_file, 'w') as f:
@@ -556,9 +601,12 @@ Output as structured TestValidationOutput JSON."""
             #report success
             test_count = sum(len(list(d.glob('*.json'))) for d in tests_dir.iterdir() if d.is_dir())
             console.print(f"[green]✓ Saved {test_count} test payloads to {tests_dir}/[/green]")
+        else:
+            console.print("[yellow]⚠ No test payloads found in agent output[/yellow]")
 
     except (json.JSONDecodeError, ValueError, KeyError, AttributeError) as e:
         console.print(f"[yellow]⚠ Could not save test payloads as files: {e}[/yellow]")
+        console.print(f"[yellow]  Error details: {str(e)}[/yellow]")
         console.print("[yellow]  Test payloads are available in session JSON file[/yellow]")
 
     return {
