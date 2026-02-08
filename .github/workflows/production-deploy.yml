@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - 'generated/production_rules/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,7 +18,7 @@ jobs:
   mock-deploy:
     name: Mock Production SIEM Deployment
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
