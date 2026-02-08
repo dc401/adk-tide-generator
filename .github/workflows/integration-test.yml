@@ -2,6 +2,7 @@ name: Integration Test Detection Rules
 
 #test generated rules against native Elasticsearch with smart refinement
 #runs after generate-detections.yml completes successfully
+#updated: 2026-02-08 to force GitHub API cache refresh
 
 on:
   workflow_run:
