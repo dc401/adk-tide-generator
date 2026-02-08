@@ -46,6 +46,12 @@ jobs:
           pip install -r requirements.txt
           echo "✓ Dependencies installed"
 
+      - name: Install yq for YAML parsing
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          echo "✓ yq installed"
+
       - name: Download Generated Rules Artifact
         uses: actions/download-artifact@v4
         with:
@@ -111,18 +117,22 @@ jobs:
             exit 0
           fi
 
-          #parse YAML results using python
-          python3 - <<'PYEOF' >> $GITHUB_OUTPUT
-import yaml
-with open('integration_test_results.yml') as f:
-    results = yaml.safe_load(f)
-summary = results.get('summary', {})
-print(f"total_rules={summary.get('total_rules', 0)}")
-print(f"rules_passed={summary.get('rules_passed', 0)}")
-print(f"rules_failed={summary.get('rules_failed', 0)}")
-print(f"rules_refined={summary.get('rules_refined', 0)}")
-print(f"test_status={'PASSED' if summary.get('rules_failed', 0) == 0 else 'FAILED'}")
-PYEOF
+          #parse YAML results using yq (simpler than Python)
+          total=$(yq '.summary.total_rules // 0' integration_test_results.yml)
+          passed=$(yq '.summary.rules_passed // 0' integration_test_results.yml)
+          failed=$(yq '.summary.rules_failed // 0' integration_test_results.yml)
+          refined=$(yq '.summary.rules_refined // 0' integration_test_results.yml)
+
+          echo "total_rules=$total" >> $GITHUB_OUTPUT
+          echo "rules_passed=$passed" >> $GITHUB_OUTPUT
+          echo "rules_failed=$failed" >> $GITHUB_OUTPUT
+          echo "rules_refined=$refined" >> $GITHUB_OUTPUT
+
+          if [ "$failed" -eq 0 ]; then
+            echo "test_status=PASSED" >> $GITHUB_OUTPUT
+          else
+            echo "test_status=FAILED" >> $GITHUB_OUTPUT
+          fi
 
       - name: Generate Test Report
         if: always()
