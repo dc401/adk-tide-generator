@@ -56,34 +56,6 @@ def wait_for_elasticsearch(url: str = 'http://localhost:9200', timeout: int = 60
     print(f"  ✗ Elasticsearch not ready after {timeout}s")
     return False
 
-def make_query_flexible(lucene_query: str) -> str:
-    """make lucene query more flexible for logic testing not exact matching"""
-    import re
-
-    #normalize Sysmon fields → ECS fields for consistency
-    field_mappings = {
-        'Image': 'process.executable',
-        'CommandLine': 'process.command_line',
-        'ParentImage': 'process.parent.executable',
-        'ParentCommandLine': 'process.parent.command_line',
-        'TargetFilename': 'file.path',
-        'EventID': 'event.code'
-    }
-
-    flexible_query = lucene_query
-
-    #replace Sysmon fields with ECS equivalents
-    for sysmon_field, ecs_field in field_mappings.items():
-        flexible_query = re.sub(rf'\b{sysmon_field}:', f'{ecs_field}:', flexible_query)
-
-    #make .exe matching case-insensitive by converting to wildcards
-    #vssadmin.exe → *vssadmin.exe* (matches any case, any path)
-    flexible_query = re.sub(r':([*]?)([a-zA-Z0-9_]+\.exe)([*]?)',
-                           lambda m: f':*{m.group(2).lower()}*',
-                           flexible_query)
-
-    return flexible_query
-
 def convert_sigma_to_elasticsearch(rules_dir: Path) -> Dict:
     """convert Sigma rules to Elasticsearch queries"""
     print("\n[2/5] Converting Sigma rules to Elasticsearch queries...")
@@ -100,41 +72,15 @@ def convert_sigma_to_elasticsearch(rules_dir: Path) -> Dict:
         lucene_queries = backend.convert_rule(rule)
         lucene_query = '\n'.join(lucene_queries) if isinstance(lucene_queries, list) else str(lucene_queries)
 
-        #make query flexible for testing logic not exact string matching
-        flexible_query = make_query_flexible(lucene_query)
-
-        #show transformation if query changed
-        if flexible_query != lucene_query:
-            print(f"    Made flexible: {rule_file.name}")
-            print(f"      Original: {lucene_query[:80]}...")
-            print(f"      Flexible: {flexible_query[:80]}...")
-
         queries[str(rule.id)] = {
             'title': rule.title,
-            'query': flexible_query,
-            'original_query': lucene_query,
+            'query': lucene_query,
             'level': rule.level.name,
             'file': rule_file.name
         }
 
     print(f"  ✓ Converted {len(queries)} Sigma rules")
     return queries
-
-def normalize_text_fields(data):
-    """normalize text fields to lowercase for case-insensitive matching"""
-    if isinstance(data, dict):
-        normalized = {}
-        for key, value in data.items():
-            #lowercase common text fields
-            if key in ['name', 'executable', 'command_line'] and isinstance(value, str):
-                normalized[key] = value.lower()
-            else:
-                normalized[key] = normalize_text_fields(value)
-        return normalized
-    elif isinstance(data, list):
-        return [normalize_text_fields(item) for item in data]
-    else:
-        return data
 
 def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
     """ingest test payloads into Elasticsearch"""
@@ -183,11 +129,8 @@ def ingest_test_payloads(es: Elasticsearch, tests_dir: Path) -> Dict:
             field_sample = list(log_entry.keys())[:5] if isinstance(log_entry, dict) else []
             print(f"    • {payload_file.stem}: fields={field_sample}")
 
-            #normalize text fields to lowercase for case-insensitive matching
-            normalized_entry = normalize_text_fields(log_entry)
-
             #ingest ONLY log_entry to elasticsearch (not wrapper)
-            es.index(index=index_name, id=doc_id, document=normalized_entry)
+            es.index(index=index_name, id=doc_id, document=log_entry)
 
             payload_map[rule_dir.name].append({
                 'id': doc_id,
