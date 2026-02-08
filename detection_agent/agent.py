@@ -27,7 +27,7 @@ from .schemas import (
 )
 from .tools import load_cti_files
 
-#retry configurations (from gcphunter pattern)
+#retry configurations (from gcphunter pattern - keep aggressive for quota handling)
 AGGRESSIVE_RETRY_CONFIG = types.HttpOptions(
     retry_options=types.HttpRetryOptions(
         initial_delay=15,
@@ -90,8 +90,9 @@ async def generate_with_retry(client, model_config: Dict, prompt: str,
                               system_instruction: str = None,
                               tools: list = None,
                               temperature: float = None,
-                              max_retries: int = 3) -> str:
-    """generate content with exponential backoff retry"""
+                              max_retries: int = 3,
+                              timeout: int = 300) -> str:
+    """generate content with exponential backoff retry and timeout"""
 
     model_name = model_config['name']
     retry_config = model_config['retry_config']
@@ -110,30 +111,44 @@ async def generate_with_retry(client, model_config: Dict, prompt: str,
 
     if tools:
         config.tools = tools
-    
+
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=config
+            #add timeout wrapper
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model=model_name,
+                    contents=prompt,
+                    config=config
+                ),
+                timeout=timeout
             )
             return response.text
-            
+
+        except asyncio.TimeoutError:
+            print(f"  ⚠️  Request timed out after {timeout}s")
+            if attempt == max_retries - 1:
+                raise Exception(f"Request timed out after {max_retries} attempts")
+            await asyncio.sleep(5.0)
+
         except ResourceExhausted as e:
             if attempt == max_retries - 1:
+                print(f"  ✗ Quota exhausted after {max_retries} attempts")
                 raise
             delay = min(20.0 * (2 ** attempt), 120.0)
             jitter = random.uniform(0, delay * 0.1)
-            print(f"  Rate limited. Retrying in {delay + jitter:.1f}s...")
+            print(f"  ⚠️  Rate limited. Retrying in {delay + jitter:.1f}s...")
             await asyncio.sleep(delay + jitter)
-            
+
         except Exception as e:
-            print(f"  Error: {e}")
+            error_msg = str(e)
+            print(f"  ⚠️  Error: {error_msg}")
             if attempt == max_retries - 1:
+                print(f"  ✗ Failed after {max_retries} attempts")
                 raise
             await asyncio.sleep(5.0)
-    
+
     raise Exception("Max retries exceeded")
 
 
