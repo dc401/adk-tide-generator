@@ -1,0 +1,130 @@
+name: Akira Ransomware - Ransom Note Creation (T1486)
+description: Detects the creation of Akira ransomware's specific ransom note file
+  'akira_readme.txt'. This is a strong indicator of active data encryption for impact,
+  as ransomware typically drops these files to communicate with victims.
+type: query
+query: event.code:11 AND file.name:*akira_readme.txt*
+language: lucene
+index:
+- logs-*
+- winlogbeat-*
+- filebeat-*
+filters: []
+risk_score: 90
+severity: critical
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1486
+    name: Data Encrypted for Impact
+    reference: https://attack.mitre.org/techniques/T1486/
+references:
+- https://attack.mitre.org/techniques/T1486/
+- https://www.elastic.co/guide/en/ecs/current/ecs-file.html
+author:
+- Detection Agent
+false_positives:
+- Extremely unlikely for a file named 'akira_readme.txt' to be created legitimately.
+  Could be a researcher or security tool.
+note: '## Triage
+
+  Investigate: process that created the file, user context, file path.
+
+  Escalate immediately if: file is found on multiple systems or in critical directories.
+  This is a critical indicator of compromise.'
+test_cases:
+- type: TP
+  description: Ransom note created in user's Documents folder
+  log_entry:
+    event:
+      code: 11
+      action: FileCreate
+      category: file
+      type: creation
+    file:
+      name: akira_readme.txt
+      path: C:\Users\victim\Documents\akira_readme.txt
+      extension: txt
+    process:
+      name: malicious_encryptor.exe
+      executable: C:\Temp\malicious_encryptor.exe
+    '@timestamp': '2024-03-12T22:30:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Ransom note created on a network share
+  log_entry:
+    event:
+      code: 11
+      action: FileCreate
+      category: file
+      type: creation
+    file:
+      name: akira_readme.txt
+      path: \\server\share\data\akira_readme.txt
+      extension: txt
+    process:
+      name: malicious_encryptor.exe
+      executable: C:\Temp\malicious_encryptor.exe
+    '@timestamp': '2024-03-12T22:30:15Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Ransomware uses a different ransom note filename
+  log_entry:
+    event:
+      code: 11
+      action: FileCreate
+      category: file
+      type: creation
+    file:
+      name: README_DECRYPT.txt
+      path: C:\Users\victim\Desktop\README_DECRYPT.txt
+      extension: txt
+    process:
+      name: malicious_encryptor.exe
+      executable: C:\Temp\malicious_encryptor.exe
+    '@timestamp': '2024-03-12T22:31:00Z'
+  expected_match: false
+  evasion_technique: Ransomware uses a different filename for the ransom note. Rule
+    is specific to 'akira_readme.txt'.
+- type: FP
+  description: Legitimate file with 'akira_readme.txt' name (highly unlikely)
+  log_entry:
+    event:
+      code: 11
+      action: FileCreate
+      category: file
+      type: creation
+    file:
+      name: akira_readme.txt
+      path: C:\Program Files\Software\Docs\akira_readme.txt
+      extension: txt
+    process:
+      name: installer.exe
+      executable: C:\Temp\installer.exe
+    '@timestamp': '2024-03-14T10:20:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal document creation
+  log_entry:
+    event:
+      code: 11
+      action: FileCreate
+      category: file
+      type: creation
+    file:
+      name: report.docx
+      path: C:\Users\victim\Documents\report.docx
+      extension: docx
+    process:
+      name: winword.exe
+      executable: C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE
+    '@timestamp': '2024-03-14T10:25:00Z'
+  expected_match: false
+  evasion_technique: null
