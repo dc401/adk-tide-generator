@@ -1,0 +1,260 @@
+name: Mock SIEM Deployment
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - 'staged_rules/**'
+
+jobs:
+  mock-deploy:
+    name: Mock Production Deployment
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    timeout-minutes: 15
+
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install elasticsearch pysigma pysigma-backend-elasticsearch pyyaml
+
+      - name: Wait for Elasticsearch
+        run: |
+          echo "Waiting for Elasticsearch to be ready..."
+          timeout 120 bash -c 'until curl -s http://localhost:9200/_cluster/health | grep -q "green\|yellow"; do sleep 2; done'
+          echo "Elasticsearch ready"
+
+      - name: Mock Production Deployment
+        run: |
+          python3 << 'EOF'
+import json
+import yaml
+import time
+from pathlib import Path
+from elasticsearch import Elasticsearch
+from sigma.rule import SigmaRule
+from sigma.backends.elasticsearch import LuceneBackend
+
+print("\n" + "="*80)
+print("MOCK PRODUCTION SIEM DEPLOYMENT")
+print("="*80 + "\n")
+
+#connect to elasticsearch (mock SIEM)
+es = Elasticsearch(['http://localhost:9200'])
+
+#load staged rules
+staged_rules_dir = Path('staged_rules')
+
+if not staged_rules_dir.exists():
+    print("ERROR: No staged_rules directory found")
+    exit(1)
+
+rule_files = list(staged_rules_dir.glob('*.yml')) + list(staged_rules_dir.glob('*.yaml'))
+
+if not rule_files:
+    print("ERROR: No rules found in staged_rules/")
+    exit(1)
+
+print(f"Found {len(rule_files)} rules to deploy\n")
+
+#deploy each rule to elasticsearch
+backend = LuceneBackend()
+deployed_rules = []
+
+for rule_file in rule_files:
+    with open(rule_file) as f:
+        rule_yaml = yaml.safe_load(f)
+
+    rule = SigmaRule.from_yaml(rule_file)
+    elk_query = backend.convert_rule(rule)
+
+    #create detection rule in elasticsearch
+    rule_id = rule_yaml.get('id')
+    rule_title = rule_yaml.get('title')
+
+    #in real deployment, this would use the SIEM's native detection rule API
+    #for Elasticsearch, this would be the Detection Rules API
+    detection_rule = {
+        'name': rule_title,
+        'description': rule_yaml.get('description'),
+        'severity': rule_yaml.get('level', 'medium'),
+        'risk_score': 50,
+        'type': 'query',
+        'query': elk_query,
+        'interval': '5m',
+        'tags': rule_yaml.get('tags', []),
+        'enabled': True,
+        'metadata': {
+            'rule_id': rule_id,
+            'deployed_by': 'github-actions',
+            'deployment_type': 'mock',
+            'batch': 'staged_rules'
+        }
+    }
+
+    #save to elasticsearch (mock deployment)
+    es.index(
+        index='.detection-rules',
+        id=rule_id,
+        document=detection_rule
+    )
+
+    deployed_rules.append({
+        'rule_id': rule_id,
+        'title': rule_title,
+        'file': rule_file.name
+    })
+
+    print(f"✓ Deployed: {rule_title}")
+
+#wait for indexing
+time.sleep(2)
+
+#verify deployment
+deployed_count = es.count(index='.detection-rules')['count']
+
+print(f"\n" + "="*80)
+print("DEPLOYMENT SUMMARY")
+print("="*80 + "\n")
+print(f"Rules Deployed: {len(deployed_rules)}")
+print(f"Verified in SIEM: {deployed_count}")
+print(f"\nDeployment Type: MOCK (ephemeral Elasticsearch)")
+print("In production, these rules would be deployed to:")
+print("  - Splunk → SPL queries")
+print("  - Chronicle → YARA-L 2.0")
+print("  - Sentinel → KQL queries")
+print("  - Elastic → Elasticsearch DSL")
+print(f"\n" + "="*80 + "\n")
+
+#save deployment manifest
+manifest = {
+    'deployed_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+    'pr_number': '${{ github.event.pull_request.number }}',
+    'approved_by': '${{ github.event.pull_request.merged_by.login }}',
+    'rules': deployed_rules
+}
+
+with open('production_rules/DEPLOYMENT_MANIFEST.json', 'w') as f:
+    json.dump(manifest, f, indent=2)
+
+print("✓ Saved deployment manifest")
+EOF
+
+      - name: Move Rules to Production
+        run: |
+          mkdir -p production_rules
+
+          #copy staged rules to production
+          cp staged_rules/*.yml production_rules/ 2>/dev/null || true
+          cp staged_rules/*.yaml production_rules/ 2>/dev/null || true
+
+          RULE_COUNT=$(ls production_rules/*.yml production_rules/*.yaml 2>/dev/null | wc -l)
+          echo "Moved $RULE_COUNT rules to production_rules/"
+
+          #archive staged rules
+          mkdir -p archived_rules
+          ARCHIVE_DIR="archived_rules/deployed_$(date +%Y%m%d_%H%M%S)"
+          mkdir -p "$ARCHIVE_DIR"
+
+          mv staged_rules/* "$ARCHIVE_DIR/" 2>/dev/null || true
+
+          echo "Archived staged rules to: $ARCHIVE_DIR"
+
+      - name: Commit Production Rules
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add production_rules/
+          git add archived_rules/
+
+          #remove now-empty staged rules if any
+          git add staged_rules/
+
+          git commit -m "ci: Deploy rules to production (mock)
+
+PR: #${{ github.event.pull_request.number }}
+Approved by: ${{ github.event.pull_request.merged_by.login }}
+Rules deployed: $(ls production_rules/*.yml production_rules/*.yaml 2>/dev/null | wc -l)
+
+Mock deployment validated with ephemeral Elasticsearch.
+Ready for real SIEM deployment."
+
+          git push
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const manifest = JSON.parse(fs.readFileSync('production_rules/DEPLOYMENT_MANIFEST.json', 'utf8'));
+
+            const comment = `## ✅ Mock Deployment Complete
+
+            **Deployment Details:**
+            - Rules Deployed: ${manifest.rules.length}
+            - Deployed At: ${manifest.deployed_at}
+            - Approved By: @${manifest.approved_by}
+
+            **Rules in Production:**
+            ${manifest.rules.map(r => `- ${r.title} (\`${r.file}\`)`).join('\n')}
+
+            **Next Steps:**
+            These rules have been validated with mock Elasticsearch and are now in \`production_rules/\`.
+
+            In a real deployment, you would now:
+            1. Convert rules to your SIEM's native format
+            2. Deploy to production SIEM via API or UI
+            3. Monitor for alerts and false positives
+            4. Iterate based on production feedback
+
+            ---
+            *Automated Mock Deployment - GitHub Actions*
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Summary
+        run: |
+          echo "================================"
+          echo "✅ Mock Deployment Successful"
+          echo "================================"
+          echo ""
+          echo "Rules deployed to production_rules/"
+          echo "Staged rules archived"
+          echo ""
+          echo "This demonstrates the full quality-gated pipeline:"
+          echo "  1. Generate → Static LLM Judge → Filter"
+          echo "  2. Convert Sigma → ELK → Validate"
+          echo "  3. Integration Test → Real ELK"
+          echo "  4. Stage → Human Review → PR"
+          echo "  5. Approve → Mock Deploy → Production"
+          echo ""

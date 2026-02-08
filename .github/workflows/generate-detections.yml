@@ -98,24 +98,113 @@ jobs:
             exit 1
           fi
 
-      - name: Commit Generated Rules
-        if: success()
+      - name: Static LLM Judge Pre-Filter
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+        run: |
+          echo "Running static quality evaluation..."
+
+          #backup all generated rules
+          mkdir -p generated/all_rules_backup
+          cp -r generated/sigma_rules/* generated/all_rules_backup/ 2>/dev/null || true
+          cp -r generated/tests/* generated/all_rules_backup/ 2>/dev/null || true
+
+          #run static LLM judge
+          python scripts/static_llm_judge.py \
+            --rules generated/sigma_rules \
+            --tests generated/tests \
+            --output generated/STATIC_QUALITY_REPORT.json \
+            --filter-output generated/sigma_rules_filtered \
+            --threshold 0.65 \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --location ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+
+      - name: Filter Passing Rules
+        id: filter
+        run: |
+          #check if any rules passed
+          if [ ! -d "generated/sigma_rules_filtered" ] || [ -z "$(ls -A generated/sigma_rules_filtered 2>/dev/null)" ]; then
+            echo "⚠️  No rules passed static quality threshold"
+            echo "All rules rejected by LLM judge"
+            echo "passing_count=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          #replace sigma_rules with filtered version
+          rm -rf generated/sigma_rules
+          mv generated/sigma_rules_filtered generated/sigma_rules
+
+          PASSING_COUNT=$(find generated/sigma_rules -name "*.yml" 2>/dev/null | wc -l)
+          echo "✅ $PASSING_COUNT rules passed static quality gate"
+          echo "passing_count=$PASSING_COUNT" >> $GITHUB_OUTPUT
+
+          #filter tests to match passing rules only
+          if [ -f "generated/PASSING_RULE_IDS.json" ]; then
+            echo "Filtering test payloads for passing rules..."
+
+            python3 << 'EOF'
+import json
+import shutil
+from pathlib import Path
+
+#load passing rule IDs
+with open('generated/PASSING_RULE_IDS.json') as f:
+    data = json.load(f)
+    passing_ids = set(data['rule_ids'])
+
+#filter test directories
+tests_dir = Path('generated/tests')
+tests_backup = Path('generated/tests_backup')
+
+if tests_dir.exists():
+    tests_backup.mkdir(exist_ok=True)
+
+    #move all tests to backup
+    for item in tests_dir.iterdir():
+        if item.is_dir():
+            shutil.move(str(item), str(tests_backup / item.name))
+
+    #restore only tests for passing rules
+    for rule_id in passing_ids:
+        rule_prefix = rule_id[:8]
+
+        #find matching test directory
+        for test_dir in tests_backup.iterdir():
+            if rule_prefix in test_dir.name:
+                shutil.move(str(test_dir), str(tests_dir / test_dir.name))
+                break
+
+print("✓ Filtered test payloads")
+EOF
+          fi
+
+      - name: Commit Passing Rules
+        if: steps.filter.outputs.passing_count > 0
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add generated/
+          #commit passing rules + quality report
+          git add generated/sigma_rules/
+          git add generated/tests/
+          git add generated/STATIC_QUALITY_REPORT.json
+          git add generated/PASSING_RULE_IDS.json
 
           #check if there are changes
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            #count files changed
-            RULE_COUNT=$(find generated/sigma_rules -name "*.yml" 2>/dev/null | wc -l)
+            PASSING_COUNT="${{ steps.filter.outputs.passing_count }}"
             TEST_COUNT=$(find generated/tests -name "*.json" 2>/dev/null | wc -l)
 
-            git commit -m "ci: Generate $RULE_COUNT Sigma rules and $TEST_COUNT test payloads from CTI"
+            git commit -m "ci: $PASSING_COUNT rules passed static LLM judge (from CTI)
 
+Quality threshold: 0.65
+Test payloads: $TEST_COUNT
+Ready for integration testing with real ELK
+
+[skip ci]"
             git push
           fi
 

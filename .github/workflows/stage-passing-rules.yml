@@ -1,0 +1,257 @@
+name: Stage Passing Detection Rules
+on:
+  workflow_run:
+    workflows: ["LLM Judge Quality Evaluation"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  stage-rules:
+    name: Stage Rules for Human Review
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check for Quality Report
+        run: |
+          if [ ! -f "generated/QUALITY_REPORT.json" ]; then
+            echo "ERROR: Quality report not found"
+            echo "Run LLM judge evaluation first"
+            exit 1
+          fi
+          echo "Found quality report"
+
+      - name: Check for Integration Test Results
+        run: |
+          if [ ! -f "generated/INTEGRATION_TEST_RESULTS.json" ]; then
+            echo "ERROR: Integration test results not found"
+            exit 1
+          fi
+          echo "Found integration test results"
+
+      - name: Filter Passing Rules
+        id: filter
+        run: |
+          python3 << 'EOF'
+          import json
+          import shutil
+          import os
+          from pathlib import Path
+          from datetime import datetime
+
+          #load quality report
+          with open('generated/QUALITY_REPORT.json') as f:
+              quality_report = json.load(f)
+
+          #load integration test results
+          with open('generated/INTEGRATION_TEST_RESULTS.json') as f:
+              test_results = json.load(f)
+
+          #filter rules that pass BOTH quality and integration thresholds
+          passing_rules = []
+
+          for eval_result in quality_report['rule_evaluations']:
+              rule_id = eval_result.get('rule_id')
+              decision = eval_result.get('deployment_decision', 'REJECT')
+
+              #check if rule exists in test results
+              if rule_id not in test_results:
+                  continue
+
+              metrics = test_results[rule_id]
+
+              #criteria for staging:
+              # - LLM judge decision: APPROVE or CONDITIONAL
+              # - Integration test F1 >= 0.75
+              # - Integration test precision >= 0.80
+              # - At least 1 TP detected
+
+              if (decision in ['APPROVE', 'CONDITIONAL'] and
+                  metrics.get('f1_score', 0) >= 0.75 and
+                  metrics.get('precision', 0) >= 0.80 and
+                  metrics.get('tp', 0) >= 1):
+
+                  passing_rules.append({
+                      'rule_id': rule_id,
+                      'rule_title': eval_result.get('rule_title'),
+                      'quality_score': eval_result.get('overall_quality_score', 0),
+                      'f1_score': metrics.get('f1_score', 0),
+                      'precision': metrics.get('precision', 0),
+                      'recall': metrics.get('recall', 0)
+                  })
+
+          print(f"\n{'='*80}")
+          print(f"STAGING FILTER RESULTS")
+          print(f"{'='*80}\n")
+          print(f"Total rules evaluated: {len(quality_report['rule_evaluations'])}")
+          print(f"Rules passing quality gate: {len(passing_rules)}")
+          print()
+
+          if not passing_rules:
+              print("⚠️  No rules passed both quality and integration thresholds")
+              print("No rules will be staged for human review")
+              exit(0)
+
+          #create staged_rules directory
+          staged_dir = Path('staged_rules')
+          staged_dir.mkdir(exist_ok=True)
+
+          batch_id = f"batch_{int(datetime.now().timestamp())}"
+          batch_file = staged_dir / f"{batch_id}.json"
+
+          #copy passing rules to staged_rules
+          for rule_info in passing_rules:
+              rule_id = rule_info['rule_id']
+
+              #find rule file
+              rule_file = None
+              for f in Path('generated/sigma_rules').glob('*.yml'):
+                  with open(f) as rf:
+                      content = rf.read()
+                      if f"id: {rule_id}" in content:
+                          rule_file = f
+                          break
+
+              if rule_file:
+                  dest_file = staged_dir / rule_file.name
+                  shutil.copy(rule_file, dest_file)
+                  print(f"✓ Staged: {rule_info['rule_title'][:60]}")
+
+          #save batch metadata
+          batch_metadata = {
+              'batch_id': batch_id,
+              'timestamp': datetime.now().isoformat(),
+              'rules': passing_rules,
+              'criteria': {
+                  'llm_judge': 'APPROVE or CONDITIONAL',
+                  'f1_score': '>= 0.75',
+                  'precision': '>= 0.80',
+                  'min_tp': '>= 1'
+              }
+          }
+
+          with open(batch_file, 'w') as f:
+              json.dump(batch_metadata, f, indent=2)
+
+          print(f"\n✓ Saved batch metadata: {batch_file}")
+          print(f"\nBatch ID: {batch_id}")
+          print(f"Rules staged: {len(passing_rules)}")
+
+          #set outputs
+          print(f"batch_id={batch_id}")
+          print(f"rule_count={len(passing_rules)}")
+
+          #save to GITHUB_OUTPUT
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"batch_id={batch_id}\n")
+              f.write(f"rule_count={len(passing_rules)}\n")
+          EOF
+
+      - name: Commit Staged Rules
+        if: steps.filter.outputs.rule_count > 0
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add staged_rules/
+
+          if git diff --staged --quiet; then
+            echo "No new staged rules to commit"
+          else
+            BATCH_ID="${{ steps.filter.outputs.batch_id }}"
+            RULE_COUNT="${{ steps.filter.outputs.rule_count }}"
+
+            git commit -m "ci: Stage $RULE_COUNT detection rules for human review
+
+Batch: $BATCH_ID
+Quality gate: LLM judge APPROVE/CONDITIONAL + F1 >= 0.75 + Precision >= 0.80
+
+These rules passed both automated quality evaluation and integration testing.
+Review the staged rules and quality metrics before deployment.
+
+[skip ci]"
+            git push
+          fi
+
+      - name: Create Review PR
+        if: steps.filter.outputs.rule_count > 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BATCH_ID="${{ steps.filter.outputs.batch_id }}"
+          RULE_COUNT="${{ steps.filter.outputs.rule_count }}"
+          BRANCH_NAME="detection-review-$(date +%Y%m%d-%H%M%S)"
+
+          #create new branch from main
+          git checkout -b "$BRANCH_NAME"
+          git push -u origin "$BRANCH_NAME"
+
+          #create PR body
+          cat > pr_body.md << 'EOFPR'
+## Detection Rules for Human Review
+
+**Batch ID:** $BATCH_ID
+**Rules Ready for Review:** $RULE_COUNT
+
+### Quality Gate Criteria
+
+These rules passed:
+- ✅ LLM Judge evaluation (APPROVE or CONDITIONAL)
+- ✅ Integration test F1 score >= 0.75
+- ✅ Integration test precision >= 0.80
+- ✅ At least 1 true positive detection
+
+### Review Checklist
+
+- [ ] Review Sigma YAML syntax and detection logic
+- [ ] Verify TTP mappings match threat intelligence
+- [ ] Check false positive potential against our environment
+- [ ] Validate test coverage is comprehensive
+- [ ] Confirm detection aligns with security monitoring strategy
+
+### Approving This PR
+
+Merging this PR will trigger mock deployment to validate SIEM integration.
+After successful mock deployment, rules will be ready for production.
+
+### Quality Reports
+
+- Quality Report: `generated/QUALITY_REPORT.json`
+- Integration Test Results: `generated/INTEGRATION_TEST_RESULTS.json`
+- Batch Metadata: `staged_rules/$BATCH_ID.json`
+
+---
+*Automated by Detection Pipeline*
+EOFPR
+
+          sed -i '' "s/\$BATCH_ID/$BATCH_ID/g" pr_body.md
+          sed -i '' "s/\$RULE_COUNT/$RULE_COUNT/g" pr_body.md
+
+          #create PR
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "Review Detection Rules - Batch $BATCH_ID" \
+            --body-file pr_body.md \
+            --label "detection-review" \
+            --label "needs-human-review"
+
+          echo "✓ Created PR for human review on branch: $BRANCH_NAME"
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.filter.outputs.rule_count }}" -gt 0 ]; then
+            echo "✅ Staged ${{ steps.filter.outputs.rule_count }} rules for human review"
+            echo "PR created for batch: ${{ steps.filter.outputs.batch_id }}"
+          else
+            echo "⚠️  No rules passed quality gates"
+            echo "Improve rule quality or adjust thresholds"
+          fi

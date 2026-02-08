@@ -43,10 +43,98 @@ jobs:
         run: |
           python scripts/validate_test_payloads.py generated/tests/
 
+  convert-and-validate:
+    name: Convert Sigma → ELK + Validate
+    runs-on: ubuntu-latest
+    needs: unit-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install google-cloud-aiplatform pysigma pysigma-backend-elasticsearch pyyaml
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Convert and Validate ELK Queries
+        env:
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+        run: |
+          echo "Converting Sigma rules to Elasticsearch queries..."
+          echo "Validating with Gemini 2.5 Pro + Google Search research..."
+
+          python scripts/convert_and_validate_elk.py \
+            --rules generated/sigma_rules \
+            --output generated/ELK_QUERIES.json \
+            --validation-report generated/ELK_VALIDATION_REPORT.json \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --location ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+
+      - name: Check Validation Results
+        id: check
+        run: |
+          python3 << 'EOF'
+import json
+import sys
+
+with open('generated/ELK_VALIDATION_REPORT.json') as f:
+    report = json.load(f)
+
+approved = report.get('approved_queries', 0)
+rejected = report.get('rejected_queries', 0)
+
+print(f"\n{'='*80}")
+print("ELK QUERY VALIDATION RESULTS")
+print(f"{'='*80}\n")
+print(f"Approved Queries: {approved}")
+print(f"Rejected Queries: {rejected}")
+print(f"\n{'='*80}\n")
+
+if approved == 0:
+    print("❌ No queries passed validation")
+    print("Fix Sigma → ELK conversion issues before integration testing")
+    sys.exit(1)
+else:
+    print(f"✅ {approved} queries ready for integration testing")
+    sys.exit(0)
+EOF
+
+      - name: Upload ELK Queries
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elk-queries
+          path: |
+            generated/ELK_QUERIES.json
+            generated/ELK_VALIDATION_REPORT.json
+          retention-days: 30
+
+      - name: Commit ELK Queries
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add generated/ELK_QUERIES.json
+          git add generated/ELK_VALIDATION_REPORT.json
+
+          git diff --quiet && git diff --staged --quiet || git commit -m "ci: Add validated ELK queries [skip ci]"
+          git push
+
   integration-test:
     name: Integration Test with Real Elasticsearch
     runs-on: ubuntu-latest
-    needs: unit-test
+    needs: convert-and-validate
     services:
       elasticsearch:
         image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
