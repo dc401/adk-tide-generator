@@ -14,6 +14,10 @@ on:
       - 'generated/tests/**'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   unit-test:
     name: Unit Test Sigma Rules
