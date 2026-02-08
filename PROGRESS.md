@@ -47,6 +47,25 @@
 
 ## Completed ✅ (Continued)
 
+### Self-Healing Refinement Loop (Complete)
+- ✅ Automatic retry if 0 rules pass validation
+- ✅ Max 2-3 iterations (configurable)
+- ✅ Tracks failure history across attempts
+- ✅ Smart retry with 5s delay between iterations
+- ✅ Enabled by default (--no-refinement to disable)
+- ✅ Verbose progress logging per iteration
+- ✅ Clear exit conditions and failure reports
+
+**Files Created:**
+- detection_agent/refinement.py - Refinement wrapper
+- Updated run_agent.py with --max-iterations flag
+
+**Workflow:**
+- Iteration 1: Initial attempt
+- If 0 rules → Iteration 2 with failure awareness
+- If still 0 → Iteration 3 (final attempt)
+- Exit with success (≥1 rule) or failure report
+
 ### Validation Pipeline (Complete)
 - ✅ 3-stage validation before integration testing
 - ✅ Stage 1: Lucene syntax check (deterministic, fast-fail)
@@ -70,6 +89,16 @@ YAML Rule → Lucene Parse → JSON Convert → LLM Schema Check → Integration
 - generated/detection_rules/ - Final YAML (human review)
 - generated/staging/json/ - Temp JSON (validation only)
 - production_rules/json/ - Approved JSON (ES deployment)
+
+### Security Protections (Complete)
+- ✅ OWASP LLM Top 10 protection (detection_agent/prompts/security_guard.md)
+- ✅ Scans CTI for prompt injection before generation
+- ✅ Blocks/flags jailbreak attempts
+- ✅ Detects data poisoning and output manipulation
+- ✅ Runs as Step 2 in workflow (before rule generation)
+- ✅ File validation: size limits, path traversal checks, allowed extensions
+- ✅ Content sanitization: removes injection patterns
+- ✅ Safe JSON/YAML parsing with error handling
 
 ## In Progress 🚧
 
