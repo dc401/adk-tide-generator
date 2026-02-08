@@ -1,0 +1,21 @@
+{
+  "payload_type": "FN",
+  "description": "Evasion by renaming vssadmin.exe to a common name (svchost.exe) and executing it from a temporary location.",
+  "log_entry": {
+    "EventID": 1,
+    "UtcTime": "2024-03-12 22:16:15.321",
+    "ProcessGuid": "{a7b3c1d9-8e6f-65f0-8d09-000000000800}",
+    "ProcessId": 6104,
+    "Image": "C:\\Users\\Public\\svchost.exe",
+    "FileVersion": "10.0.19041.1",
+    "CommandLine": "C:\\Users\\Public\\svchost.exe delete shadows /all",
+    "User": "NT AUTHORITY\\SYSTEM",
+    "ParentProcessGuid": "{a7b3c1d9-8e6f-65f0-1a9b-000000000800}",
+    "ParentImage": "C:\\Users\\victim\\AppData\\Local\\Temp\\update.exe",
+    "ParentCommandLine": "C:\\Users\\victim\\AppData\\Local\\Temp\\update.exe"
+  },
+  "expected_alert": false,
+  "evasion_technique": "Masquerading: The malicious command is executed via a renamed 'vssadmin.exe'. The rule's reliance on 'process.name' fails to detect the activity.",
+  "legitimate_scenario": null,
+  "timestamp": "2024-07-30T10:01:01Z"
+}

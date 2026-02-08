@@ -1,0 +1,21 @@
+{
+  "payload_type": "TP",
+  "description": "Attacker uses wmic.exe with mixed casing to delete shadow copies, testing for case-insensitivity.",
+  "log_entry": {
+    "EventID": 1,
+    "UtcTime": "2024-03-12 22:15:12.890",
+    "ProcessGuid": "{a7b3c1d9-8e6f-65f0-8c2f-000000000800}",
+    "ProcessId": 5512,
+    "Image": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+    "FileVersion": "10.0.19041.1",
+    "CommandLine": "WMIC.exe shadowcopy DELETE /nointeractive",
+    "User": "CORP\\CompromisedAdmin",
+    "ParentProcessGuid": "{a7b3c1d9-8e6f-65f0-8c1d-000000000800}",
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "ParentCommandLine": "cmd.exe"
+  },
+  "expected_alert": true,
+  "evasion_technique": null,
+  "legitimate_scenario": null,
+  "timestamp": "2024-07-30T10:00:02Z"
+}

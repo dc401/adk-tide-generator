@@ -1,0 +1,21 @@
+{
+  "payload_type": "TN",
+  "description": "An administrator lists existing shadow copies to check backup status. This is a common, benign administrative action.",
+  "log_entry": {
+    "EventID": 1,
+    "UtcTime": "2024-03-14 14:00:05.123",
+    "ProcessGuid": "{c9d5e3f1-0a81-67b2-ad3f-000000000a00}",
+    "ProcessId": 10111,
+    "Image": "C:\\Windows\\System32\\vssadmin.exe",
+    "FileVersion": "10.0.19041.1",
+    "CommandLine": "vssadmin list shadows",
+    "User": "CORP\\Helpdesk",
+    "ParentProcessGuid": "{c9d5e3f1-0a81-67b2-1c9d-000000000a00}",
+    "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+    "ParentCommandLine": "cmd.exe"
+  },
+  "expected_alert": false,
+  "evasion_technique": null,
+  "legitimate_scenario": "A helpdesk technician is running a diagnostic command to check the status of volume shadow copies. The command lacks the 'delete' keyword required for a match.",
+  "timestamp": "2024-07-30T10:03:00Z"
+}

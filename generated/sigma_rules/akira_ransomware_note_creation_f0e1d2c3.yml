@@ -1,0 +1,44 @@
+title: Akira Ransomware Note Creation
+id: f0e1d2c3-b4a5-46c7-88d9-e0f1a2b3c4d5
+status: experimental
+description: Detects the creation of the 'akira_readme.txt' ransom note file. The
+  presence of this file is a high-fidelity indicator of an active Akira ransomware
+  infection.
+references:
+- https://attack.mitre.org/techniques/T1486/
+author: Automated Detection Agent
+date: '2024-07-29'
+modified: '2024-07-29'
+tags:
+- attack.impact
+- attack.t1486
+logsource:
+  product: windows
+  service: sysmon
+  category: file_creation
+detection:
+  selection:
+    file.name: akira_readme.txt
+  condition: selection and not filter_legitimate
+falsepositives:
+- A security researcher or sandbox environment intentionally creating the file to
+  test detection capabilities.
+level: critical
+fields:
+- file.path
+- process.executable
+- user.name
+- host.name
+test_scenarios:
+  true_positive: The Akira ransomware binary creates a file named `akira_readme.txt`
+    in a user's Documents folder after encrypting files.
+  false_negative: The ransomware variant is updated to use a different ransom note
+    name, such as `HOW_TO_RECOVER.txt`.
+  false_positive: A threat intelligence analyst saves a copy of the Akira ransom note
+    to their desktop for analysis.
+  true_negative: A user creates a new file named `readme.txt` in a project directory.
+  log_source_schema: https://www.elastic.co/guide/en/ecs/current/ecs-file.html
+  example_log_fields:
+    event.code: '11'
+    process.executable: C:\Users\victim\AppData\Local\Temp\malicious.exe
+    file.path: C:\Users\victim\Documents\akira_readme.txt

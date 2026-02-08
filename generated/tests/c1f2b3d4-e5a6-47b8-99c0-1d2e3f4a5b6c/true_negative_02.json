@@ -1,0 +1,21 @@
+{
+  "payload_type": "TN",
+  "description": "A script creates a new shadow copy for backup purposes, which is the intended and normal use of vssadmin.",
+  "log_entry": {
+    "EventID": 1,
+    "UtcTime": "2024-03-14 02:00:00.999",
+    "ProcessGuid": "{c9d5e3f1-0a81-67b2-bd4a-000000000a00}",
+    "ProcessId": 2233,
+    "Image": "C:\\Windows\\System32\\vssadmin.exe",
+    "FileVersion": "10.0.19041.1",
+    "CommandLine": "vssadmin create shadow /for=C:",
+    "User": "NT AUTHORITY\\SYSTEM",
+    "ParentProcessGuid": "{c9d5e3f1-0a81-67b2-bd40-000000000a00}",
+    "ParentImage": "C:\\Program Files\\BackupSolution\\BackupExec.exe",
+    "ParentCommandLine": "C:\\Program Files\\BackupSolution\\BackupExec.exe -jobID 123"
+  },
+  "expected_alert": false,
+  "evasion_technique": null,
+  "legitimate_scenario": "A scheduled backup job is creating a new shadow copy. This is a routine and expected system activity that does not involve deletion.",
+  "timestamp": "2024-07-30T10:03:01Z"
+}
