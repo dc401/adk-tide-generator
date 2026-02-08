@@ -73,7 +73,9 @@ def convert_sigma_to_elk(sigma_rule_path: Path) -> Dict:
         with open(sigma_rule_path) as f:
             rule_yaml = yaml.safe_load(f)
 
-        rule = SigmaRule.from_yaml(sigma_rule_path)
+        #reopen file for SigmaRule (needs file handle)
+        with open(sigma_rule_path) as f:
+            rule = SigmaRule.from_yaml(f)
 
         #convert to elasticsearch lucene format
         backend = LuceneBackend()
