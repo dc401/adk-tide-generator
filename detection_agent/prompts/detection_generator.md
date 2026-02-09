@@ -232,59 +232,33 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
 **Cloud fields (AWS/Azure/GCP):**
 - `cloud.account.id` - Account/Project ID
 - `cloud.provider` - aws/azure/gcp
-- `event.action` - API call name (e.g., AssumeRole, CreateInstance)
-
-### GCP Audit Log Detections (CRITICAL)
-
-**GCP detection queries MUST be SPECIFIC - avoid overly broad matches:**
-
-**REQUIRED fields for GCP audit logs:**
-- `cloud.provider:gcp` - Filter to GCP events only
-- `event.category:api` - GCP audit logs are API calls (NOT "cloud")
-- `event.action:google.*` - SPECIFIC API method (e.g., `google.compute.v1.Snapshots.Delete`)
+- `event.action` - Specific API call name (REQUIRED for cloud detections)
+- `event.category:api` - Cloud audit logs are API calls
 - `event.outcome:success` (or `failure`) - Filter by result
 
-**Common GCP field patterns:**
-```
-CORRECT (Specific):
-cloud.provider:gcp AND event.category:api AND event.action:google.compute.v1.Snapshots.Delete AND event.outcome:success
-
-WRONG (Too Broad):
-cloud.provider:gcp AND event.category:cloud AND gcp.audit.service.name:compute.googleapis.com
-```
-
-**Why specificity matters for GCP:**
-- ❌ Matching only service name (e.g., `compute.googleapis.com`) catches ALL Compute API calls (read, write, list, delete)
-- ✅ Matching specific action (e.g., `google.compute.v1.Snapshots.Delete`) catches only the malicious operation
-- Without `event.action`, query is 100x too broad and causes massive false positives
-
-**GCP API action patterns:**
-- Compute: `google.compute.v1.{Resource}.{Action}` (e.g., `Instances.Delete`, `Snapshots.Create`)
-- IAM: `google.iam.admin.v1.{Action}` (e.g., `SetIamPolicy`, `CreateServiceAccountKey`)
-- Storage: `google.storage.v1.{Resource}.{Action}` (e.g., `Buckets.Delete`, `Objects.Create`)
-- BigQuery: `google.cloud.bigquery.v2.{Resource}.{Action}` (e.g., `Datasets.Delete`)
-
-**Research GCP actions:**
-- Use Google Search to find exact API method names from GCP API documentation
-- Example search: "GCP audit logs snapshot delete API action"
-- Verify action format: `event.action:google.{service}.{version}.{Resource}.{Method}`
+**Cloud detection specificity (applies to ALL cloud providers):**
+- ✅ Match specific API actions: `event.action:{SpecificAPICall}`
+- ❌ Match only service/resource type (too broad)
+- Example (ANY cloud): `event.category:api AND event.action:DeleteSnapshot` vs `service.name:compute`
 
 ### False Positive Prevention
 
 **Query specificity is CRITICAL - overly broad queries cause alert fatigue and are unusable:**
 
 **Common false positive causes:**
-1. **Missing action specificity** - Matching service instead of specific API call
-   - ❌ `gcp.audit.service.name:compute.googleapis.com` (all Compute API calls)
-   - ✅ `event.action:google.compute.v1.Instances.Delete` (only deletions)
+1. **Missing action/method specificity** - Matching broad category instead of specific operation
+   - ❌ Cloud: `service.name:compute` (all compute API calls)
+   - ✅ Cloud: `event.action:DeleteInstance` (only deletions)
+   - ❌ Process: `process.name:*cmd*` (all command prompt activity)
+   - ✅ Process: `process.name:*cmd* AND process.command_line:(*del* OR *rm*)` (only delete commands)
 
 2. **Missing outcome filtering** - Catching failed attempts as well as successes
    - ❌ `event.action:DeleteUser` (includes failed attempts)
    - ✅ `event.action:DeleteUser AND event.outcome:success` (only successful deletes)
 
-3. **Too broad process matching** - Matching read operations with write operations
-   - ❌ `process.command_line:*vssadmin*` (matches list, query, AND delete)
-   - ✅ `process.command_line:(*delete*shadows* OR *shadowcopy*delete*)` (only delete ops)
+3. **Too broad command matching** - Matching read operations with write operations
+   - ❌ `process.command_line:*admin_tool*` (matches list, query, AND modify)
+   - ✅ `process.command_line:(*delete* OR *remove* OR *destroy*)` (only destructive ops)
 
 4. **Missing event lifecycle** - Not filtering to specific event.type
    - ❌ `event.category:file AND file.extension:exe` (creation, access, deletion all match)
