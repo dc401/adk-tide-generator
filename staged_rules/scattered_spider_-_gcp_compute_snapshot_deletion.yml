@@ -1,0 +1,140 @@
+name: Scattered Spider - GCP Compute Snapshot Deletion
+description: Detects attempts by Scattered Spider to delete Google Cloud Platform
+  (GCP) compute snapshots. This action is a common anti-forensics technique to inhibit
+  system recovery and destroy potential recovery points, increasing the impact of
+  a RansomOp.
+type: query
+query: event.category:api AND cloud.provider:gcp AND event.action:compute.snapshots.delete
+  AND event.outcome:success
+language: lucene
+index:
+- logs-*
+- gcp.auditlog-*
+filters: []
+risk_score: 85
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1485
+    name: Data Destruction
+    reference: https://attack.mitre.org/techniques/T1485/
+  - id: T1562.008
+    name: Deactivate or Modify Cloud Logs
+    reference: https://attack.mitre.org/techniques/T1562/008/
+references:
+- https://attack.mitre.org/techniques/T1485/
+- https://attack.mitre.org/techniques/T1562/008/
+- https://www.elastic.co/guide/en/ecs/current/ecs-cloud.html
+- https://cloud.google.com/compute/docs/reference/rest/v1/snapshots/delete
+author:
+- Detection Agent
+false_positives:
+- Legitimate administrators deleting old or unused snapshots for cost optimization
+  or data retention policies.
+note: '## Triage
+
+  Investigate: the user account performing the deletion, the timing of the action,
+  and whether it aligns with known maintenance windows or approved changes. Deletion
+  of critical snapshots should be immediately escalated.'
+test_cases:
+- type: TP
+  description: Successful deletion of a GCP compute snapshot
+  log_entry:
+    event:
+      category: api
+      action: compute.snapshots.delete
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: malicious-user@example.com
+    gcp:
+      audit:
+        resource:
+          type: compute.googleapis.com/Snapshot
+          name: critical-backup-snapshot
+    '@timestamp': '2024-03-12T22:40:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Another successful deletion of a GCP compute snapshot
+  log_entry:
+    event:
+      category: api
+      action: compute.snapshots.delete
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: compromised-service-account@gcp-project.iam.gserviceaccount.com
+    gcp:
+      audit:
+        resource:
+          type: compute.googleapis.com/Snapshot
+          name: daily-snapshot-prod
+    '@timestamp': '2024-03-12T22:40:10Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Deletion of a GCP disk image (not a snapshot)
+  log_entry:
+    event:
+      category: api
+      action: compute.images.delete
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: malicious-user@example.com
+    gcp:
+      audit:
+        resource:
+          type: compute.googleapis.com/Image
+          name: golden-image-v1
+    '@timestamp': '2024-03-12T22:41:00Z'
+  expected_match: false
+  evasion_technique: Targets disk images instead of snapshots. This rule is specific
+    to 'compute.snapshots.delete'.
+- type: FP
+  description: Legitimate admin deleting an old snapshot
+  log_entry:
+    event:
+      category: api
+      action: compute.snapshots.delete
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: admin@example.com
+    gcp:
+      audit:
+        resource:
+          type: compute.googleapis.com/Snapshot
+          name: old-dev-snapshot-2023
+    '@timestamp': '2024-03-14T10:30:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal GCP API call (instance creation)
+  log_entry:
+    event:
+      category: api
+      action: compute.instances.insert
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: dev-user@example.com
+    gcp:
+      audit:
+        resource:
+          type: compute.googleapis.com/Instance
+          name: new-dev-vm
+    '@timestamp': '2024-03-14T10:35:00Z'
+  expected_match: false
+  evasion_technique: null
