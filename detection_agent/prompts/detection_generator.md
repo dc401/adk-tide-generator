@@ -38,7 +38,7 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
   "name": "Concise detection name (60 chars max)",
   "description": "What this detects and why it matters (2-3 sentences)",
   "type": "query",
-  "query": "event.code:1 AND process.name:(*vssadmin* OR *wmic*) AND process.command_line:(*delete*shadows* OR *shadowcopy*delete*)",
+  "query": "event.category:process AND event.type:start AND event.code:1 AND process.name:(*vssadmin* OR *wmic*) AND process.command_line:(*delete*shadows* OR *shadowcopy*delete*)",
   "language": "lucene",
   "index": ["logs-*", "winlogbeat-*", "filebeat-*"],
   "filters": [],
@@ -68,7 +68,7 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
       "type": "TP",
       "description": "Malicious vssadmin shadow deletion",
       "log_entry": {
-        "event": {"code": 1},
+        "event": {"category": "process", "type": "start", "code": 1},
         "process": {
           "name": "vssadmin.exe",
           "command_line": "vssadmin delete shadows /all /quiet",
@@ -82,7 +82,7 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
       "type": "FN",
       "description": "PowerShell evasion using WMI API",
       "log_entry": {
-        "event": {"code": 1},
+        "event": {"category": "process", "type": "start", "code": 1},
         "process": {
           "name": "powershell.exe",
           "command_line": "Get-WmiObject Win32_ShadowCopy | ForEach-Object {$_.Delete()}"
@@ -96,7 +96,7 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
       "type": "FP",
       "description": "Admin checking shadow copy status",
       "log_entry": {
-        "event": {"code": 1},
+        "event": {"category": "process", "type": "start", "code": 1},
         "process": {
           "name": "vssadmin.exe",
           "command_line": "vssadmin list shadows"
@@ -109,7 +109,7 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
       "type": "TN",
       "description": "Normal system activity",
       "log_entry": {
-        "event": {"code": 1},
+        "event": {"category": "process", "type": "start", "code": 1},
         "process": {
           "name": "explorer.exe",
           "command_line": "C:\\Windows\\explorer.exe"
@@ -180,7 +180,8 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
 **Field Consistency:**
 - Test log_entry MUST use same ECS fields as detection query
 - If query uses `process.name`, test MUST have `process.name`
-- Values must be realistic (actual paths, actual commands)
+- **CRITICAL:** All test payloads MUST include core ECS fields: `event.category`, `event.type`, `@timestamp`
+- Values must be realistic (actual paths, actual commands, valid timestamps)
 
 ### Severity Scoring
 
@@ -242,6 +243,54 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
 5. **Document evasions** - Explain FN cases to help future refinement
 6. **Verify consistency** - Query fields match test case fields
 
+## CRITICAL: Core ECS Categorization Fields
+
+**ALWAYS include these core ECS fields in EVERY query:**
+
+1. **`event.category`** - REQUIRED for proper event categorization (e.g., `process`, `file`, `network`)
+2. **`event.type`** - REQUIRED for event lifecycle (e.g., `start`, `end`, `creation`, `deletion`)
+3. **`@timestamp`** - REQUIRED in test payloads for time-based filtering
+
+**Why these are critical:**
+- ECS categorization fields are "Level: core" in the official schema
+- They are present in ALL real-world logs from Elastic Beats, Logstash, and integrations
+- Queries without these fields are overly broad and perform poorly
+- Test payloads without these fields don't match real data structure
+
+**Example - Process Detection:**
+```
+CORRECT: event.category:process AND event.type:start AND process.name:*cmd.exe*
+WRONG:   process.name:*cmd.exe*  (missing categorization - too broad)
+```
+
+**Example - File Detection:**
+```
+CORRECT: event.category:file AND event.type:creation AND file.extension:exe
+WRONG:   file.extension:exe  (missing categorization - matches unrelated events)
+```
+
+**Example - Network Detection:**
+```
+CORRECT: event.category:network AND destination.port:445 AND network.protocol:tcp
+WRONG:   destination.port:445  (missing categorization - incomplete context)
+```
+
+**Common event.category values:**
+- `process` - Process execution, termination
+- `file` - File creation, modification, deletion
+- `network` - Network connections, DNS queries
+- `authentication` - Login, logout, authentication events
+- `registry` - Windows registry modifications
+- `web` - HTTP requests/responses
+
+**Common event.type values:**
+- `start` - Process start, connection initiation
+- `end` - Process termination, connection closure
+- `creation` - File/object creation
+- `deletion` - File/object deletion
+- `change` - Modification events
+- `access` - Access/read events
+
 ## Example Workflow
 
 ```
@@ -249,7 +298,7 @@ CTI: "Akira ransomware deletes shadow copies using vssadmin"
 ↓
 Research: ECS process fields, Lucene wildcards, vssadmin syntax
 ↓
-Query: event.code:1 AND process.name:*vssadmin* AND process.command_line:*delete*shadows*
+Query: event.category:process AND event.type:start AND event.code:1 AND process.name:*vssadmin* AND process.command_line:*delete*shadows*
 ↓
 Test TP: vssadmin delete shadows /all /quiet → MATCH ✓
 Test FN: PowerShell WMI API → NO MATCH (documents bypass)
