@@ -53,7 +53,7 @@ on:
         description: 'Run TTP validator after integration test'
         required: false
         type: boolean
-        default: false
+        default: true
 
 #prevent concurrent runs of this workflow
 concurrency:
@@ -283,10 +283,10 @@ jobs:
 
       - name: Run TTP Intent Validator
         id: run_validator
-        timeout-minutes: 8
+        timeout-minutes: 15
         env:
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+          GOOGLE_CLOUD_LOCATION: ${{ needs.generate.outputs.selected_region }}
         run: |
           echo "Running TTP Intent Validator on generated rules..."
 

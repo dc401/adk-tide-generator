@@ -13,6 +13,10 @@ on:
         required: true
       GOOGLE_CLOUD_LOCATION:
         required: true
+    outputs:
+      selected_region:
+        description: 'Dynamically selected GCP region for this run'
+        value: ${{ jobs.generate-rules.outputs.region }}
   push:
     branches: [main]
     paths:
@@ -28,6 +32,8 @@ jobs:
     name: Generate Elasticsearch Detection Rules from CTI
     runs-on: ubuntu-latest
     timeout-minutes: 60  #increased for larger CTI files with more indicators
+    outputs:
+      region: ${{ steps.select_region.outputs.region }}
 
     steps:
       - name: Checkout code
@@ -110,14 +116,22 @@ jobs:
             echo "  - $file ($SIZE)"
           done
 
+      - name: Select Region (Round-Robin)
+        id: select_region
+        run: |
+          SELECTED_REGION=$(python3 scripts/select_region.py)
+          echo "region=$SELECTED_REGION" >> $GITHUB_OUTPUT
+          echo "Selected region for this run: $SELECTED_REGION"
+
       - name: Generate Detection Rules
         timeout-minutes: 15
         env:
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+          GOOGLE_CLOUD_LOCATION: ${{ steps.select_region.outputs.region }}
           GOOGLE_GENAI_USE_VERTEXAI: 'true'
         run: |
           echo "Starting Elasticsearch detection rule generation..."
+          echo "Using region: ${{ steps.select_region.outputs.region }}"
           echo "Timeout: 15 minutes (with self-healing refinement)"
 
           set -e  # Exit immediately on any error
@@ -125,7 +139,7 @@ jobs:
             --cti-folder cti_src \
             --output generated \
             --project ${{ secrets.GCP_PROJECT_ID }} \
-            --location ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+            --location ${{ steps.select_region.outputs.region }}
 
       - name: Verify Generated Rules
         run: |
