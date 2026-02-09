@@ -341,8 +341,6 @@ The system automatically refines rules at each failure stage:
 - **Fix:** Applies judge's specific recommendations
 - **Attempts:** Max 2 per rule
 
-See [docs/milestones/ITERATIVE_VALIDATION_SUCCESS.md](docs/milestones/ITERATIVE_VALIDATION_SUCCESS.md) for detailed documentation.
-
 ## Project Structure
 
 ```
@@ -402,22 +400,10 @@ adk-tide-generator/
 ├── archived_rules/                #deployment history
 │   └── batch_*_deployed_*/        #audit trail with metadata
 │
-├── docs/                          #documentation
-│   ├── milestones/                #important milestone documentation
-│   │   ├── CORE_ECS_FIELD_FIX_SUCCESS.md
-│   │   ├── ITERATIVE_VALIDATION_SUCCESS.md
-│   │   ├── INTEGRATION_TEST_SUCCESS.md
-│   │   ├── MOCK_DEPLOYMENT_SUCCESS.md
-│   │   ├── STAGE_3_COMPLETE_PR_CREATED.md
-│   │   └── TTP_VALIDATOR_IMPROVEMENT_CYCLE.md
-│   └── archive/                   #session progress notes (historical)
-│
 ├── run_agent.py                   #CLI entry point
 ├── requirements.txt               #Python dependencies
 ├── README.md                      #this file
 ├── END_TO_END_TEST.md             #end-to-end testing guide
-├── SESSION_SUMMARY.md             #comprehensive session summary
-├── BACKLOG.md                     #future improvements
 ├── TESTING_GUIDE.md               #testing documentation
 └── ARCHITECTURE_ELASTICSEARCH_NATIVE.md #technical architecture
 ```
@@ -756,30 +742,12 @@ python scripts/test_ttp_validator.py \
 
 ## Documentation
 
-### Essential
 - [README.md](README.md) - This file
 - [END_TO_END_TEST.md](END_TO_END_TEST.md) - End-to-end testing guide
-- [SESSION_SUMMARY.md](SESSION_SUMMARY.md) - Comprehensive session summary
-- [BACKLOG.md](BACKLOG.md) - Future improvements roadmap
 - [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testing procedures
 - [ARCHITECTURE_ELASTICSEARCH_NATIVE.md](ARCHITECTURE_ELASTICSEARCH_NATIVE.md) - Technical architecture
 
-### Milestones
-- [docs/milestones/CORE_ECS_FIELD_FIX_SUCCESS.md](docs/milestones/CORE_ECS_FIELD_FIX_SUCCESS.md) - ECS field fix milestone
-- [docs/milestones/ITERATIVE_VALIDATION_SUCCESS.md](docs/milestones/ITERATIVE_VALIDATION_SUCCESS.md) - Iterative validation system
-- [docs/milestones/INTEGRATION_TEST_SUCCESS.md](docs/milestones/INTEGRATION_TEST_SUCCESS.md) - Integration testing milestone
-- [docs/milestones/MOCK_DEPLOYMENT_SUCCESS.md](docs/milestones/MOCK_DEPLOYMENT_SUCCESS.md) - Mock deployment milestone
-- [docs/milestones/STAGE_3_COMPLETE_PR_CREATED.md](docs/milestones/STAGE_3_COMPLETE_PR_CREATED.md) - Human-in-the-loop workflow
-- [docs/milestones/TTP_VALIDATOR_IMPROVEMENT_CYCLE.md](docs/milestones/TTP_VALIDATOR_IMPROVEMENT_CYCLE.md) - TTP validator demonstration
-
 ## Quality Metrics
-
-### Current Production Rules
-- **Rules Deployed:** 3 (Akira ransomware detection set)
-- **LLM Quality Scores:** 0.93-0.97 (all pass ≥0.75 threshold)
-- **Integration Test Precision:** 45.5%
-- **Integration Test Recall:** 62.5%
-- **TTP Validation Pass Rate:** 88% (15/17 valid initial, 100% after fixes)
 
 ### Target Metrics
 - **Precision:** ≥ 0.60 (max 40% false positives)
@@ -787,7 +755,13 @@ python scripts/test_ttp_validator.py \
 - **LLM Quality Score:** ≥ 0.75
 - **TTP Validation:** 100% valid test cases
 
-See [BACKLOG.md](BACKLOG.md) for planned quality improvements.
+Rules are validated through:
+- Lucene syntax validation
+- ECS field validation (1990 fields)
+- Integration testing with Elasticsearch
+- TTP intent validation
+- LLM quality judge evaluation
+- Human review before deployment
 
 ## Contributing
 
@@ -809,8 +783,7 @@ MIT License - See LICENSE file for details
 
 For issues and questions:
 - GitHub Issues: https://github.com/dc401/adk-tide-generator/issues
-- Documentation: See docs/ folder
-- Session Summary: [SESSION_SUMMARY.md](SESSION_SUMMARY.md)
+- Documentation: See README.md, END_TO_END_TEST.md, TESTING_GUIDE.md
 
 ## Acknowledgments
 
