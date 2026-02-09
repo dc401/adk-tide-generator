@@ -234,6 +234,70 @@ You may receive intelligence from **multiple files** (PDFs, DOCX, TXT, MD) that 
 - `cloud.provider` - aws/azure/gcp
 - `event.action` - API call name (e.g., AssumeRole, CreateInstance)
 
+### GCP Audit Log Detections (CRITICAL)
+
+**GCP detection queries MUST be SPECIFIC - avoid overly broad matches:**
+
+**REQUIRED fields for GCP audit logs:**
+- `cloud.provider:gcp` - Filter to GCP events only
+- `event.category:api` - GCP audit logs are API calls (NOT "cloud")
+- `event.action:google.*` - SPECIFIC API method (e.g., `google.compute.v1.Snapshots.Delete`)
+- `event.outcome:success` (or `failure`) - Filter by result
+
+**Common GCP field patterns:**
+```
+CORRECT (Specific):
+cloud.provider:gcp AND event.category:api AND event.action:google.compute.v1.Snapshots.Delete AND event.outcome:success
+
+WRONG (Too Broad):
+cloud.provider:gcp AND event.category:cloud AND gcp.audit.service.name:compute.googleapis.com
+```
+
+**Why specificity matters for GCP:**
+- ❌ Matching only service name (e.g., `compute.googleapis.com`) catches ALL Compute API calls (read, write, list, delete)
+- ✅ Matching specific action (e.g., `google.compute.v1.Snapshots.Delete`) catches only the malicious operation
+- Without `event.action`, query is 100x too broad and causes massive false positives
+
+**GCP API action patterns:**
+- Compute: `google.compute.v1.{Resource}.{Action}` (e.g., `Instances.Delete`, `Snapshots.Create`)
+- IAM: `google.iam.admin.v1.{Action}` (e.g., `SetIamPolicy`, `CreateServiceAccountKey`)
+- Storage: `google.storage.v1.{Resource}.{Action}` (e.g., `Buckets.Delete`, `Objects.Create`)
+- BigQuery: `google.cloud.bigquery.v2.{Resource}.{Action}` (e.g., `Datasets.Delete`)
+
+**Research GCP actions:**
+- Use Google Search to find exact API method names from GCP API documentation
+- Example search: "GCP audit logs snapshot delete API action"
+- Verify action format: `event.action:google.{service}.{version}.{Resource}.{Method}`
+
+### False Positive Prevention
+
+**Query specificity is CRITICAL - overly broad queries cause alert fatigue and are unusable:**
+
+**Common false positive causes:**
+1. **Missing action specificity** - Matching service instead of specific API call
+   - ❌ `gcp.audit.service.name:compute.googleapis.com` (all Compute API calls)
+   - ✅ `event.action:google.compute.v1.Instances.Delete` (only deletions)
+
+2. **Missing outcome filtering** - Catching failed attempts as well as successes
+   - ❌ `event.action:DeleteUser` (includes failed attempts)
+   - ✅ `event.action:DeleteUser AND event.outcome:success` (only successful deletes)
+
+3. **Too broad process matching** - Matching read operations with write operations
+   - ❌ `process.command_line:*vssadmin*` (matches list, query, AND delete)
+   - ✅ `process.command_line:(*delete*shadows* OR *shadowcopy*delete*)` (only delete ops)
+
+4. **Missing event lifecycle** - Not filtering to specific event.type
+   - ❌ `event.category:file AND file.extension:exe` (creation, access, deletion all match)
+   - ✅ `event.category:file AND event.type:creation AND file.extension:exe` (only new files)
+
+**Test your FP cases:**
+- Each FP test case should be realistic benign activity that COULD trigger if query is too broad
+- If FP test matches your query, the query needs to be more specific
+- Example FP tests:
+  - Admin checking status (list/query operations)
+  - Normal system activity (explorer.exe, system processes)
+  - Legitimate operations (scheduled tasks, maintenance)
+
 ## Generation Process
 
 1. **Analyze CTI** - Identify TTPs, target environment, attack patterns
