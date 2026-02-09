@@ -162,7 +162,8 @@ Generate corrected rules that fix these specific issues.
                 model_config,
                 refinement_prompt,
                 temperature=0.2,  #lower temp for correction
-                tools=[{'type': 'google_search'}]
+                tools=[{'type': 'google_search'}],
+                timeout=300  # 5min - validation + field research + JSON regeneration (up to 3 iterations)
             )
             
             #parse refined response

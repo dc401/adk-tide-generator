@@ -92,13 +92,14 @@ async def generate_with_retry(client, model_config: Dict, prompt: str,
                               tools: list = None,
                               temperature: float = None,
                               max_retries: int = 2,
-                              timeout: int = 60) -> str:
+                              timeout: int = 180) -> str:
     """generate content with exponential backoff retry and timeout
 
-    Fail-fast configuration:
-    - 60s timeout per attempt (not 5min)
-    - 2 retries max (not 3)
-    - Exit immediately on errors
+    Timeout configuration:
+    - 180s (3min) timeout per attempt for generous buffer
+    - Accounts for: multiple CTI files, Google Search latency, validation
+    - 2 retries max with exponential backoff + jitter
+    - HTTP-level retries built into SDK (4-6 attempts)
     """
 
     model_name = model_config['name']
@@ -121,7 +122,8 @@ async def generate_with_retry(client, model_config: Dict, prompt: str,
 
     for attempt in range(max_retries):
         try:
-            #add timeout wrapper
+            #add timeout wrapper with timing
+            start_time = asyncio.get_event_loop().time()
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     client.models.generate_content,
@@ -131,10 +133,12 @@ async def generate_with_retry(client, model_config: Dict, prompt: str,
                 ),
                 timeout=timeout
             )
+            elapsed = asyncio.get_event_loop().time() - start_time
+            print(f"  ✓ Response received in {elapsed:.1f}s (timeout: {timeout}s)")
             return response.text
 
         except asyncio.TimeoutError:
-            print(f"  ⚠️  Request timed out after {timeout}s")
+            print(f"  ⚠️  Request timed out after {timeout}s (attempt {attempt + 1}/{max_retries})")
             if attempt == max_retries - 1:
                 raise Exception(f"Request timed out after {max_retries} attempts")
             await asyncio.sleep(5.0)
@@ -197,7 +201,8 @@ async def run_detection_agent(cti_dir: Path, output_dir: Path, project_id: str, 
         client,
         MODELS['flash'],
         security_scan_prompt,
-        temperature=0.3
+        temperature=0.3,
+        timeout=120  # 2min - simple scan, no tools
     )
     
     security_result = SecurityScanResult(**safe_json_parse(security_response))
@@ -223,7 +228,8 @@ async def run_detection_agent(cti_dir: Path, output_dir: Path, project_id: str, 
         MODELS['flash'],
         generation_prompt,
         temperature=0.3,
-        tools=[types.Tool(google_search=types.GoogleSearch())]
+        tools=[types.Tool(google_search=types.GoogleSearch())],
+        timeout=180  # 3min - Flash + Google Search + multiple CTI files
     )
 
     #parse initial response
@@ -287,7 +293,8 @@ async def run_detection_agent(cti_dir: Path, output_dir: Path, project_id: str, 
             MODELS['pro'],
             validation_prompt,
             temperature=0.2,
-            tools=[types.Tool(google_search=types.GoogleSearch())]
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+            timeout=240  # 4min - Pro model (slower) + Google Search
         )
         
         validation = ValidationResult(**safe_json_parse(val_response))
