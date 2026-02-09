@@ -1,0 +1,600 @@
+{
+  "timestamp": "2026-02-09 11:27:42",
+  "rules_tested": 9,
+  "overall_metrics": {
+    "TP": 16,
+    "FN": 4,
+    "FP": 21,
+    "TN": 6,
+    "total": 47,
+    "precision": 0.432,
+    "recall": 0.8,
+    "f1_score": 0.561,
+    "accuracy": 0.468
+  },
+  "rule_results": [
+    {
+      "rule_name": "akira_ransomware_-_ransom_note_creation",
+      "query": "event.category:file AND event.type:creation AND file.name:*akira_readme.txt*",
+      "results": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0
+      },
+      "metrics": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0,
+        "total": 5,
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1_score": 0.571,
+        "accuracy": 0.4
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Akira ransom note created in a user directory",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Akira ransom note created in a shared drive",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 3,
+          "test_type": "FN",
+          "description": "Ransomware using a different ransom note name",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FP",
+          "description": "Legitimate file with similar name (unlikely for 'akira_readme.txt')",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 5,
+          "test_type": "TN",
+          "description": "Normal document creation",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        }
+      ]
+    },
+    {
+      "rule_name": "akira_ransomware_-_service_stop_via_cli",
+      "query": "event.category:process AND event.type:start AND event.code:(1 OR 4688) AND ((process.name:*net.exe* AND process.command_line:(*stop*)) OR (process.name:*sc.exe* AND process.command_line:(*config* AND *start*=disabled*)) OR (process.name:*taskkill.exe* AND process.command_line:(*F* AND *IM*)))",
+      "results": {
+        "TP": 3,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0
+      },
+      "metrics": {
+        "TP": 3,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0,
+        "total": 6,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1_score": 0.667,
+        "accuracy": 0.5
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Malicious net stop command",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Malicious sc config to disable service",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 3,
+          "test_type": "TP",
+          "description": "Malicious taskkill to terminate process",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FN",
+          "description": "PowerShell Stop-Service cmdlet",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 5,
+          "test_type": "FP",
+          "description": "Admin starting a service",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 6,
+          "test_type": "TN",
+          "description": "Normal process execution",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        }
+      ]
+    },
+    {
+      "rule_name": "scattered_spider_-_gcp_firewall_rule_modification",
+      "query": "event.category:api AND cloud.provider:gcp AND event.outcome:success AND event.action:(compute.firewalls.create OR compute.firewalls.update OR compute.firewalls.patch OR compute.firewalls.delete)",
+      "results": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0
+      },
+      "metrics": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0,
+        "total": 5,
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1_score": 0.571,
+        "accuracy": 0.4
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Successful creation of a new GCP firewall rule",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Successful update of an existing GCP firewall rule",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 3,
+          "test_type": "FN",
+          "description": "Modification of network routes (not firewall rules)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FP",
+          "description": "Legitimate admin creating a new firewall rule for a new application",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 5,
+          "test_type": "TN",
+          "description": "Normal GCP API call (storage bucket creation)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        }
+      ]
+    },
+    {
+      "rule_name": "scattered_spider_-_gcp_compute_startup_script_modification",
+      "query": "event.category:api AND cloud.provider:gcp AND event.outcome:success AND event.action:(compute.instances.setMetadata OR compute.project.setCommonInstanceMetadata) AND gcp.audit.request.metadata.key:startup-script",
+      "results": {
+        "TP": 0,
+        "FN": 2,
+        "FP": 0,
+        "TN": 3
+      },
+      "metrics": {
+        "TP": 0,
+        "FN": 2,
+        "FP": 0,
+        "TN": 3,
+        "total": 5,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "accuracy": 0.6
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Successful modification of instance startup script",
+          "expected_match": true,
+          "actual_match": false,
+          "outcome": "FN"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Successful modification of project-wide startup script",
+          "expected_match": true,
+          "actual_match": false,
+          "outcome": "FN"
+        },
+        {
+          "test_num": 3,
+          "test_type": "FN",
+          "description": "Scheduled task created within the OS (not via GCP API startup script)",
+          "expected_match": false,
+          "actual_match": false,
+          "outcome": "TN"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FP",
+          "description": "Legitimate admin setting a new startup script for instance initialization",
+          "expected_match": false,
+          "actual_match": false,
+          "outcome": "TN"
+        },
+        {
+          "test_num": 5,
+          "test_type": "TN",
+          "description": "Normal GCP API call (disk resize)",
+          "expected_match": false,
+          "actual_match": false,
+          "outcome": "TN"
+        }
+      ]
+    },
+    {
+      "rule_name": "scattered_spider_-_gcp_new_compute_instance_launch",
+      "query": "event.category:api AND cloud.provider:gcp AND event.outcome:success AND event.action:compute.instances.insert",
+      "results": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0
+      },
+      "metrics": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0,
+        "total": 5,
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1_score": 0.571,
+        "accuracy": 0.4
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Successful launch of a new GCP compute instance",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Another successful launch of a new GCP compute instance",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 3,
+          "test_type": "FN",
+          "description": "Launch of a different cloud resource type (e.g., Cloud SQL instance)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FP",
+          "description": "Legitimate auto-scaling group launching a new instance",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 5,
+          "test_type": "TN",
+          "description": "Normal GCP API call (network creation)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        }
+      ]
+    },
+    {
+      "rule_name": "scattered_spider_-_gcp_ssh_backdoor_creation_via_metadata",
+      "query": "event.category:api AND cloud.provider:gcp AND event.outcome:success AND event.action:(compute.instances.setMetadata OR compute.project.setCommonInstanceMetadata) AND gcp.audit.request.metadata.key:ssh-keys",
+      "results": {
+        "TP": 0,
+        "FN": 2,
+        "FP": 0,
+        "TN": 3
+      },
+      "metrics": {
+        "TP": 0,
+        "FN": 2,
+        "FP": 0,
+        "TN": 3,
+        "total": 5,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "accuracy": 0.6
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Successful addition of SSH key to instance metadata",
+          "expected_match": true,
+          "actual_match": false,
+          "outcome": "FN"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Successful addition of SSH key to project-wide metadata",
+          "expected_match": true,
+          "actual_match": false,
+          "outcome": "FN"
+        },
+        {
+          "test_num": 3,
+          "test_type": "FN",
+          "description": "SSH key added directly to authorized_keys file on instance (not via GCP API)",
+          "expected_match": false,
+          "actual_match": false,
+          "outcome": "TN"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FP",
+          "description": "Legitimate admin adding SSH key for a new developer",
+          "expected_match": false,
+          "actual_match": false,
+          "outcome": "TN"
+        },
+        {
+          "test_num": 5,
+          "test_type": "TN",
+          "description": "Normal GCP API call (instance stop)",
+          "expected_match": false,
+          "actual_match": false,
+          "outcome": "TN"
+        }
+      ]
+    },
+    {
+      "rule_name": "scattered_spider_-_gcp_os_windows_password_reset",
+      "query": "event.category:api AND cloud.provider:gcp AND event.outcome:success AND event.action:compute.instances.resetWindowsPassword",
+      "results": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0
+      },
+      "metrics": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0,
+        "total": 5,
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1_score": 0.571,
+        "accuracy": 0.4
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Successful reset of a Windows instance password",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Another successful reset of a Windows instance password",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 3,
+          "test_type": "FN",
+          "description": "Password reset performed directly within the OS (e.g., net user command)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FP",
+          "description": "Legitimate admin resetting a Windows instance password for a user",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 5,
+          "test_type": "TN",
+          "description": "Normal GCP API call (instance start)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        }
+      ]
+    },
+    {
+      "rule_name": "akira_ransomware_-_shadow_copy_deletion",
+      "query": "event.category:process AND event.type:start AND event.code:(1 OR 4688) AND (process.name:(*vssadmin.exe* OR *wmic.exe* OR *bcdedit.exe*)) AND process.command_line:(*delete*shadows* OR *shadowcopy*delete* OR *recoveryenabled*no* OR *bootstatuspolicy*ignoreallfailures*)",
+      "results": {
+        "TP": 3,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0
+      },
+      "metrics": {
+        "TP": 3,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0,
+        "total": 6,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1_score": 0.667,
+        "accuracy": 0.5
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Malicious vssadmin shadow deletion",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Malicious wmic shadow copy deletion",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 3,
+          "test_type": "TP",
+          "description": "Malicious bcdedit to disable recovery",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FN",
+          "description": "PowerShell evasion using WMI API to delete shadow copies",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 5,
+          "test_type": "FP",
+          "description": "Admin checking shadow copy status",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 6,
+          "test_type": "TN",
+          "description": "Normal system activity",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        }
+      ]
+    },
+    {
+      "rule_name": "scattered_spider_-_gcp_compute_snapshot_deletion",
+      "query": "event.category:api AND cloud.provider:gcp AND event.action:compute.snapshots.delete AND event.outcome:success",
+      "results": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0
+      },
+      "metrics": {
+        "TP": 2,
+        "FN": 0,
+        "FP": 3,
+        "TN": 0,
+        "total": 5,
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1_score": 0.571,
+        "accuracy": 0.4
+      },
+      "details": [
+        {
+          "test_num": 1,
+          "test_type": "TP",
+          "description": "Successful deletion of a GCP compute snapshot",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 2,
+          "test_type": "TP",
+          "description": "Another successful deletion of a GCP compute snapshot",
+          "expected_match": true,
+          "actual_match": true,
+          "outcome": "TP"
+        },
+        {
+          "test_num": 3,
+          "test_type": "FN",
+          "description": "Deletion of a GCP disk image (not a snapshot)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 4,
+          "test_type": "FP",
+          "description": "Legitimate admin deleting an old snapshot",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        },
+        {
+          "test_num": 5,
+          "test_type": "TN",
+          "description": "Normal GCP API call (instance creation)",
+          "expected_match": false,
+          "actual_match": true,
+          "outcome": "FP"
+        }
+      ]
+    }
+  ]
+}
