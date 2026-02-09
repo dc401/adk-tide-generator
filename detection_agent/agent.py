@@ -26,6 +26,7 @@ from .schemas import (
     SecurityScanResult,
 )
 from .tools import load_cti_files
+from .tools.iterative_validator import validate_and_refine_rules
 
 #retry configurations (from gcphunter pattern - keep aggressive for quota handling)
 AGGRESSIVE_RETRY_CONFIG = types.HttpOptions(
@@ -211,12 +212,12 @@ async def run_detection_agent(cti_dir: Path, output_dir: Path, project_id: str, 
     if security_result.action == 'FLAG':
         print(f"  ⚠️  FLAGGED: {security_result.recommendation}")
     
-    #step 3: generate detection rules
+    #step 3: generate detection rules with iterative validation
     print("\n[3/5] Generating detection rules...")
     generation_prompt = f"{generator_prompt}\n\n## CTI Intelligence:\n\n{cti_content}"
-    
+
     await asyncio.sleep(INTER_AGENT_DELAY)
-    
+
     gen_response = await generate_with_retry(
         client,
         MODELS['flash'],
@@ -225,7 +226,7 @@ async def run_detection_agent(cti_dir: Path, output_dir: Path, project_id: str, 
         tools=[types.Tool(google_search=types.GoogleSearch())]
     )
 
-    #parse and validate response
+    #parse initial response
     parsed_response = safe_json_parse(gen_response)
 
     #check if response has required fields
@@ -241,8 +242,28 @@ async def run_detection_agent(cti_dir: Path, output_dir: Path, project_id: str, 
             'analyzed': datetime.now().isoformat()
         }
 
-    rule_output = DetectionRuleOutput(**parsed_response)
-    print(f"  ✓ Generated {rule_output.total_rules} detection rules")
+    print(f"  ✓ Generated {len(parsed_response.get('rules', []))} detection rules")
+
+    #iterative validation and refinement
+    print("\n[3.5/5] Iterative validation & refinement...")
+    validated_response = await validate_and_refine_rules(
+        rules_data=parsed_response,
+        client=client,
+        model_config=MODELS['flash'],
+        generator_prompt=generator_prompt,
+        cti_content=cti_content,
+        generate_with_retry_func=generate_with_retry,
+        max_iterations=3,
+        inter_agent_delay=INTER_AGENT_DELAY
+    )
+
+    #use validated response
+    rule_output = DetectionRuleOutput(**validated_response)
+    print(f"  ✓ Final output: {rule_output.total_rules} validated rules")
+
+    if validated_response.get('validation_incomplete'):
+        print(f"  ⚠️  Some validation issues remain (see logs above)")
+        print(f"  Proceeding with best-effort rules...")
     
     #step 4: validate rules
     print("\n[4/5] Validating detection rules...")
