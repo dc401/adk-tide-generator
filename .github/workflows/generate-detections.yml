@@ -111,21 +111,25 @@ jobs:
           done
 
       - name: Generate Detection Rules
-        timeout-minutes: 15
+        timeout-minutes: 30
         env:
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
           GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
           GOOGLE_GENAI_USE_VERTEXAI: 'true'
         run: |
-          echo "Starting Elasticsearch detection rule generation from CTI sources..."
-          echo "Timeout: 15 minutes (increased for multiple CTI files with iterative validation)"
+          echo "Starting Elasticsearch detection rule generation with quality retry..."
+          echo "Timeout: 30 minutes (quality-driven refinement with integration testing)"
 
           set -e  # Exit immediately on any error
           python run_agent.py \
             --cti-folder cti_src \
             --output generated \
             --project ${{ secrets.GCP_PROJECT_ID }} \
-            --location global
+            --location global \
+            --quality-retry \
+            --max-iterations 3 \
+            --precision-threshold 0.60 \
+            --recall-threshold 0.70
 
       - name: Verify Generated Rules
         run: |

@@ -19,6 +19,7 @@ load_dotenv()
 
 from detection_agent.agent import run_detection_agent
 from detection_agent.refinement import run_with_refinement
+from detection_agent.quality_retry import run_with_quality_retry
 
 def parse_args():
     """parse command line arguments"""
@@ -95,6 +96,26 @@ workflow:
         type=int,
         default=3,
         help='Maximum refinement iterations if zero rules pass (default: 3)'
+    )
+
+    parser.add_argument(
+        '--quality-retry',
+        action='store_true',
+        help='Enable quality-driven retry loop (test-based refinement with precision/recall thresholds)'
+    )
+
+    parser.add_argument(
+        '--precision-threshold',
+        type=float,
+        default=0.60,
+        help='Minimum precision threshold for quality retry (default: 0.60)'
+    )
+
+    parser.add_argument(
+        '--recall-threshold',
+        type=float,
+        default=0.70,
+        help='Minimum recall threshold for quality retry (default: 0.70)'
     )
 
     return parser.parse_args()
@@ -196,8 +217,20 @@ async def interactive_mode(args):
     print("Running Detection Agent Pipeline...")
     print("="*80)
 
-    #use refinement loop by default
-    if args.no_refinement:
+    #use quality retry, refinement, or single attempt
+    if args.quality_retry:
+        print(f"Using quality-driven retry loop (max {args.max_iterations} iterations)")
+        print(f"Quality thresholds: Precision ≥ {args.precision_threshold*100:.0f}%, Recall ≥ {args.recall_threshold*100:.0f}%")
+        result = await run_with_quality_retry(
+            cti_dir=Path(args.cti_folder),
+            output_dir=Path(args.output),
+            project_id=project_id,
+            location=args.location,
+            max_iterations=args.max_iterations,
+            precision_threshold=args.precision_threshold,
+            recall_threshold=args.recall_threshold
+        )
+    elif args.no_refinement:
         print("⚠ Refinement disabled - single attempt only")
         result = await run_detection_agent(
             cti_dir=Path(args.cti_folder),
@@ -251,8 +284,18 @@ async def main():
         print("Set via --project flag or GOOGLE_CLOUD_PROJECT env var")
         sys.exit(1)
 
-    #use refinement loop by default
-    if args.no_refinement:
+    #use quality retry, refinement, or single attempt
+    if args.quality_retry:
+        result = await run_with_quality_retry(
+            cti_dir=Path(args.cti_folder),
+            output_dir=Path(args.output),
+            project_id=project_id,
+            location=args.location,
+            max_iterations=args.max_iterations,
+            precision_threshold=args.precision_threshold,
+            recall_threshold=args.recall_threshold
+        )
+    elif args.no_refinement:
         result = await run_detection_agent(
             cti_dir=Path(args.cti_folder),
             output_dir=Path(args.output),
