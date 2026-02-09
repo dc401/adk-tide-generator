@@ -1,4 +1,4 @@
-name: Cleanup Stale Artifacts
+name: Maintenance - Cleanup Stale Artifacts
 
 #weekly cleanup of stale generated artifacts not tied to open PRs
 #preserves production_rules/ which contain human-approved rules
