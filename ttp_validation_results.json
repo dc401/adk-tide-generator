@@ -1,0 +1,697 @@
+{
+  "total_rules": 3,
+  "rule_results": [
+    {
+      "rule_name": "Windows - Akira Ransomware Note Creation",
+      "total_tests": 5,
+      "validations": [
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Note Creation",
+          "test_description": "Creation of akira_readme.txt ransom note",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "N/A - The test case represents a file creation event, not a command-line execution. The event fields are valid for a standard file creation log."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The creation of a ransom note is a core component of T1486 (Data Encrypted for Impact). After encrypting files, the threat actor must leave instructions for payment. This log entry directly represents that action as performed by Akira ransomware."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "The file name 'akira_readme.txt' is the exact, documented ransom note name used by the Akira ransomware. The path 'C:\\Users\\Victim\\Documents\\' is a realistic location for a ransom note to be dropped to ensure visibility. The process name 'ransomware.exe' is generic but acceptable for a test case, as the detection focuses on the file artifact, not the source process."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A - This is a True Positive test case."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "Multiple threat intelligence sources, including CISA, Sophos, and the MITRE ATT&CK group page for Akira (G1024), explicitly confirm that Akira drops a ransom note named 'akira_readme.txt'. This is a well-documented indicator of compromise (IOC)."
+            }
+          },
+          "research_sources": [
+            "MITRE ATT&CK Group G1024 (Akira): https://attack.mitre.org/groups/G1024/",
+            "CISA Alert (AA23-231A) #StopRansomware: Akira Ransomware: https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-231a",
+            "Sophos News, 'Akira ransomware is a \u2018new\u2019 variant of Conti': https://news.sophos.com/en-us/2023/07/26/akira-ransomware-is-a-new-variant-of-conti-with-a-linux-version/"
+          ],
+          "issues": [],
+          "recommendations": "The test payload is valid and accurately represents the target behavior. No changes are required. The generic process name 'ransomware.exe' does not detract from the validity of this specific test, as the rule's logic is based on the file name.",
+          "real_world_example": "In observed incidents, the Akira ransomware executable iterates through directories on local and network drives, encrypts files, and then drops a ransom note named 'akira_readme.txt' into each directory containing encrypted files."
+        },
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Note Creation",
+          "test_description": "Creation of akira_readme.html ransom note",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "Not applicable. The test case is for a file creation event, not a process execution with command-line arguments."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The creation of a ransom note is a direct and integral part of T1486 (Data Encrypted for Impact). The note's purpose is to inform the victim of the encryption and provide payment instructions, which is the final step of the 'Impact' tactic."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "The event fields (`event.category:file`, `event.type:creation`) are standard for file monitoring. The file path `C:\\Share\\...` is a realistic location for a ransom note, as attackers often place them in shared directories to maximize visibility. The process name `malicious_payload.exe` is generic but acceptable for a test case representing the ransomware executable."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "Not applicable for a True Positive test."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "Multiple threat intelligence reports and the MITRE ATT&CK page for Akira (S1064) confirm that the ransomware drops a note named 'akira_readme.txt'. The test case uses 'akira_readme.html', which is a highly plausible variant. The detection query `(*akira_readme.txt OR *akira_readme.html)` is well-designed to catch both, and testing the '.html' variant confirms the rule's robustness against minor changes."
+            }
+          },
+          "research_sources": [
+            "CISA Advisory AA24-131A on Akira Ransomware: https://www.cisa.gov/news-events/cybersecurity-advisories/aa24-131a",
+            "MITRE ATT&CK Software page for Akira (S1064): https://attack.mitre.org/software/S1064/",
+            "Sophos News, 'Akira ransomware deploys using Cisco VPNs': https://news.sophos.com/en-us/2023/05/09/akira-ransomware-deploys-using-cisco-vpns/"
+          ],
+          "issues": [],
+          "recommendations": "None. The test case is valid. It accurately represents the target behavior and tests a realistic variation that a robust detection rule should cover, preventing circular logic by not using the most common and obvious indicator ('akira_readme.txt').",
+          "real_world_example": "Akira ransomware, after encrypting files on a victim's system, drops a ransom note in each affected directory. Threat intelligence confirms the primary note name is 'akira_readme.txt'. This test validates the detection of a plausible variant, 'akira_readme.html', being created by the ransomware process."
+        },
+        {
+          "test_type": "FN",
+          "rule_name": "Windows - Akira Ransomware Note Creation",
+          "test_description": "Ransomware uses a different ransom note name",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "Not applicable for a file creation event. The log fields represent the outcome of an action, not the command itself."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The creation of a text file named '_readme.txt' in a user directory is a classic indicator of ransomware activity and directly aligns with the objectives of T1486 (Data Encrypted for Impact), where attackers leave instructions for payment."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are plausible. 'event.category: file' and 'event.type: creation' are correct. The path 'C:\\Users\\Victim\\_readme.txt' is a common location for ransom notes to be dropped for user visibility. 'process.name: ransomware.exe' is generic but acceptable for a test case."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "The evasion claim is accurate. The detection query `file.name:(*akira_readme.txt OR *akira_readme.html)` is highly specific. The test payload's `file.name` is '_readme.txt', which does not match either string in the query. This demonstrates a classic and effective evasion technique: minor modification of an indicator to break a brittle signature."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "The evasion technique is strongly backed by real-world observations. While Akira is known for 'akira_readme.txt', many other major ransomware families use more generic or slightly modified names. For example, Conti used 'readme.txt', and other groups use variations like 'restore_files.txt' or 'decrypt_me.txt'. This test payload realistically simulates an attacker using a simple, non-standard name to evade specific detection logic."
+            }
+          },
+          "research_sources": [
+            "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-187a",
+            "https://www.bleepingcomputer.com/news/security/a-closer-look-at-the-conti-ransomware-leaks/",
+            "https://attack.mitre.org/techniques/T1486/"
+          ],
+          "issues": [
+            "The detection query is overly specific and therefore brittle. It relies on a single threat actor's known naming convention, making it trivial to bypass by changing the ransom note's name slightly."
+          ],
+          "recommendations": "The detection query should be broadened to detect more generic ransom note patterns. Consider using wildcards more effectively, such as `file.name:(*readme*.txt OR *recover*.txt OR *decrypt*.txt OR *help*.txt)`. A more advanced detection would correlate the creation of such notes with recent high-volume file modification events.",
+          "real_world_example": "The Conti ransomware group, one of the most prolific in history, used generic ransom note names like 'readme.txt' and 'CONTI_README.txt'. This test case, using '_readme.txt', is a highly realistic simulation of how a new ransomware variant or a copycat would slightly alter its indicators to evade signature-based detections that are too specific."
+        },
+        {
+          "test_type": "FP",
+          "rule_name": "Windows - Akira Ransomware Note Creation",
+          "test_description": "Legitimate file creation with 'akira' in name (unlikely)",
+          "validation_result": "INVALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "N/A. This is a file creation event, not a command-line execution. The fields related to the event are valid."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The rule correctly targets a common procedure of T1486 (Data Encrypted for Impact), which is the creation of a ransom note. The test log, being benign, does not represent the TTP, which is the correct intent for a False Positive test."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "The log entry is plausible. 'notepad.exe' is a common process for creating text files, and 'D:\\Projects\\...' is a realistic user-defined file path on a Windows system."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A. This is a False Positive test case, not a False Negative."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "The detection query is well-researched. Threat intelligence reports consistently state that Akira ransomware drops a ransom note named 'akira_readme.txt'. The query correctly targets this specific indicator."
+            }
+          },
+          "research_sources": [
+            "CISA Advisory on Akira Ransomware: https://www.cisa.gov/news-events/cybersecurity-advisories/aa24-131a",
+            "Sophos News, 'Akira ransomware returns': https://news.sophos.com/en-us/2023/08/17/akira-ransomware-returns-with-linux-version-and-new-tactics/",
+            "MITRE ATT&CK T1486 (Data Encrypted for Impact): https://attack.mitre.org/techniques/T1486/"
+          ],
+          "issues": [
+            "The test case is invalid as a False Positive because it would not be detected by the rule. The purpose of an FP test is to find a benign event that *is* detected. This log would be correctly ignored.",
+            "The detection query looks for `file.name:(*akira_readme.txt OR *akira_readme.html)`. The log's `file.name` is `akira_project_notes.txt`, which does not match either pattern.",
+            "This test case is functionally a True Negative (TN), as it represents a benign event that the rule correctly does not fire on."
+          ],
+          "recommendations": "To create a valid False Positive test for this rule, the `file.name` in the log must match the query's pattern. For example, `\"file.name\": \"my_project_akira_readme.txt\"`. However, the high specificity of the rule's pattern (`akira_readme.txt`) makes a plausible FP scenario very unlikely, which indicates the rule is well-tuned. This test should be re-classified as a True Negative or be corrected to actually trigger the rule.",
+          "real_world_example": "A real-world attack by Akira ransomware would create a file with the exact name 'akira_readme.txt' in multiple directories on compromised systems. The provided log does not represent this behavior."
+        },
+        {
+          "test_type": "TN",
+          "rule_name": "Windows - Akira Ransomware Note Creation",
+          "test_description": "Normal document creation",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "N/A. This is a file creation event, not a process command-line execution. The fields are appropriate for the event type."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The log represents benign activity (a user creating a Word document) and correctly does NOT align with the malicious TTP T1486. This is the explicit purpose of a True Negative test case: to ensure the rule does not fire on normal, non-malicious behavior."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All fields represent a highly realistic and common scenario. 'winword.exe' is the correct process for Microsoft Word. The file path 'C:\\Users\\User3\\Documents\\report.docx' is a standard location for a user-created document. The event category and type are standard for file system monitoring."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A. This is a True Negative test case, not a False Negative (evasion) test."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "The log represents common, everyday user behavior on a Windows system. The detection query specifically looks for 'akira_readme.txt' or 'akira_readme.html'. This test case, with 'report.docx', correctly simulates activity that should be ignored. Research into Akira ransomware confirms the specificity of the ransom note names, making this TN test case highly relevant."
+            }
+          },
+          "research_sources": [
+            "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-108a",
+            "https://www.bleepingcomputer.com/news/security/akira-ransomware-targets-cisco-vpns-to-breach-corporate-networks/",
+            "https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file"
+          ],
+          "issues": [],
+          "recommendations": "This is a high-quality True Negative test case. It accurately represents benign activity that should not trigger the rule, helping to validate the rule's specificity and prevent false positives. No changes are needed.",
+          "real_world_example": "A user creating a new document named 'report.docx' using Microsoft Word and saving it to their 'Documents' folder. This activity is extremely common and should not be flagged as malicious."
+        }
+      ],
+      "summary": {
+        "valid": 4,
+        "invalid": 1,
+        "errors": 0,
+        "high_confidence": 5,
+        "medium_confidence": 0,
+        "low_confidence": 0
+      }
+    },
+    {
+      "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+      "total_tests": 6,
+      "validations": [
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+          "test_description": "Malicious net stop command for a backup service",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'net stop \"Veeam Backup Service\"' is the correct syntax for stopping a Windows service with a name containing spaces. The '/y' flag is not a valid switch for 'net stop' but is often included in attacker scripts out of habit or for use with other 'net' commands. The command will still execute successfully, with the '/y' being ignored. This superfluous flag makes the test case more realistic, as it mirrors imperfect real-world attacker scripts."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The command directly attempts to stop the 'Veeam Backup Service'. This action is a classic implementation of MITRE ATT&CK T1489 (Service Stop), a sub-technique of T1486 (Data Encrypted for Impact). Ransomware commonly performs this action to ensure backup files are not in use and can be deleted or encrypted."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic. 'net.exe' is the correct process name. 'C:\\Windows\\System32\\net.exe' is the correct default path. 'Administrator' is a plausible user context for an attacker with elevated privileges. Targeting 'Veeam Backup Service' is highly realistic, as Veeam is a popular enterprise backup solution and a primary target for ransomware."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A - This is a True Positive test case, not a False Negative."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "Threat intelligence reports from multiple vendors (Picus Security, Trend Micro) confirm that Akira ransomware and other families use 'net stop' to terminate backup and security services, specifically mentioning Veeam. MITRE ATT&CK T1489 procedure examples list 'net stop [service name]' as a common technique used by numerous threat actors."
+            }
+          },
+          "research_sources": [
+            "Picus Security - Simulating Akira Ransomware Attacks: https://www.picussecurity.com/resource/blog/simulating-akira-ransomware-attacks",
+            "MITRE ATT&CK T1489 Service Stop: https://attack.mitre.org/techniques/T1489/",
+            "Microsoft Documentation for 'net stop': https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/cc732289(v=ws.11)"
+          ],
+          "issues": [],
+          "recommendations": "This is a high-quality, realistic True Positive test case. No changes are recommended.",
+          "real_world_example": "Multiple threat intelligence reports show ransomware using commands like `net stop \"Veeam Backup Service\"` or similar variations in batch scripts to disable backup capabilities before encryption. For example, Picus Security's analysis of Akira ransomware explicitly lists this command as part of the attack chain."
+        },
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+          "test_description": "Malicious sc config to disable a security service",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'sc config \"Sophos Agent\" start= disabled' uses valid syntax for the Windows Service Control utility (sc.exe). The 'config' subcommand modifies a service's configuration, and 'start= disabled' sets the service's start type to disabled. The space after the '=' is required and correctly used."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "This command directly aligns with MITRE ATT&CK T1489 (Service Stop). Disabling a service is a form of stopping it and preventing it from running, which is the core objective of this technique. MITRE's own procedure examples for T1489 include 'sc config <service_name> start= disabled'."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic. 'process.name' is 'sc.exe', 'process.executable' points to the correct default location 'C:\\Windows\\System32\\sc.exe', and the 'user.name' 'Administrator' is plausible as elevated privileges are required to modify services. Targeting a service named 'Sophos Agent' is a highly realistic action for an attacker attempting to disable security software."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A - This is a True Positive test case, not designed for evasion."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "This technique is extensively documented. Threat intelligence reports on various ransomware families, including Akira, Conti, and Black Basta, frequently cite the use of 'sc.exe' to disable security services. The command is a textbook example found in multiple security vendor analyses and is listed as a procedure example in MITRE ATT&CK."
+            }
+          },
+          "research_sources": [
+            "MITRE ATT&CK T1489 Procedure Examples: https://attack.mitre.org/techniques/T1489/",
+            "Microsoft 'sc config' Documentation: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-config",
+            "Sophos News - 'Akira ransomware is a new, fast-moving threat': https://news.sophos.com/en-us/2023/05/09/akira-ransomware-is-a-new-fast-moving-threat/",
+            "CISA Advisory #StopRansomware: Akira Ransomware: https://www.cisa.gov/news-events/cybersecurity-advisories/aa24-131a"
+          ],
+          "issues": [],
+          "recommendations": "None. This test case is a valid and realistic representation of the target TTP and accurately reflects real-world attacker behavior.",
+          "real_world_example": "sc.exe config \"Sophos Agent\" start= disabled - This command pattern is frequently used by ransomware families (e.g., Akira, Black Basta, Conti) to disable endpoint security products to ensure the encryption process is not interrupted."
+        },
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+          "test_description": "Malicious taskkill to terminate a database process",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command `taskkill /F /IM sqlservr.exe` uses valid and documented flags for the Windows `taskkill.exe` utility. `/F` forcefully terminates the process, and `/IM` specifies the target by its image name. The syntax is correct."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "This command directly aligns with MITRE ATT&CK T1489 (Service Stop). Ransomware commonly terminates database services (like `sqlservr.exe` for Microsoft SQL Server) to ensure database files are unlocked and can be successfully encrypted."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic. `taskkill.exe` is located in `C:\\Windows\\System32`. `sqlservr.exe` is a common and high-value target for ransomware. The process running as the `SYSTEM` user is plausible, as ransomware often requires elevated privileges to stop critical services."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A for a True Positive test case."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "This behavior is strongly backed by threat intelligence. Multiple reports on Akira ransomware explicitly document the use of `taskkill` to terminate services, including SQL. For example, a Cybereason report shows Akira using `taskkill.exe /f /im sqlwriter.exe`, and a Sophos report shows a script used by Akira containing `taskkill /f /im sql*`. This test payload is a direct and accurate representation of observed Akira TTPs."
+            }
+          },
+          "research_sources": [
+            "https://www.cybereason.com/blog/cybereason-vs.-akira-ransomware",
+            "https://news.sophos.com/en-us/2023/07/12/inside-an-akira-ransomware-attack/",
+            "https://attack.mitre.org/techniques/T1489/",
+            "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/taskkill"
+          ],
+          "issues": [],
+          "recommendations": "None. This is a high-quality test case that accurately reflects real-world threat behavior documented for Akira ransomware.",
+          "real_world_example": "taskkill.exe /f /im sqlwriter.exe"
+        },
+        {
+          "test_type": "FN",
+          "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+          "test_description": "PowerShell evasion using Stop-Service cmdlet",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'Stop-Service -Name \"MSSQLSERVER\" -Force' is valid PowerShell syntax. According to Microsoft documentation, 'Stop-Service' is the correct cmdlet, and '-Name' and '-Force' are legitimate parameters."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The command directly achieves the objective of T1489 (Service Stop). Ransomware operators frequently stop database services like MSSQL to ensure database files are unlocked and can be successfully encrypted."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic. 'powershell.exe' with its standard path is correct. Stopping a service often requires elevated privileges, making the 'Administrator' user plausible. 'MSSQLSERVER' is the default instance name for Microsoft SQL Server, a high-value target for ransomware."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "The evasion claim is accurate. The detection query is explicitly scoped to 'process.name:(*net.exe OR *sc.exe OR *taskkill.exe)'. The test payload uses 'process.name: \"powershell.exe\"', which does not match the query's process name condition. Therefore, this activity would be missed, making it a valid False Negative."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "Using PowerShell cmdlets like 'Stop-Service' is a well-documented 'Living off the Land' technique for service manipulation and evasion. MITRE ATT&CK lists APT29 using 'Stop-Service', and numerous threat intelligence reports from vendors like Sophos and Red Canary confirm its use by various ransomware and threat groups to bypass detections focused on legacy command-line tools."
+            }
+          },
+          "research_sources": [
+            "https://attack.mitre.org/techniques/T1489/ (Procedure example for APT29 notes use of Stop-Service)",
+            "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/stop-service (Microsoft documentation for the Stop-Service cmdlet)",
+            "https://news.sophos.com/en-us/2021/05/13/conti-ransomware-a-to-z/ (Threat report noting Conti ransomware uses PowerShell to stop services)",
+            "https://redcanary.com/threat-detection-report/techniques/powershell/ (Red Canary notes Stop-Service is a commonly abused PowerShell cmdlet)"
+          ],
+          "issues": [],
+          "recommendations": "The test case is valid and highlights a significant gap in the detection logic. To improve coverage, the rule should be enhanced to detect malicious PowerShell usage. Consider adding logic that triggers on 'process.name:powershell.exe' combined with command-line patterns for 'Stop-Service' or 'Set-Service', especially when targeting critical services (e.g., sql, veeam, backup).",
+          "real_world_example": "Multiple ransomware families, including Conti and REvil, have been observed using PowerShell scripts that leverage the 'Stop-Service' cmdlet to terminate database and security software services prior to encryption, bypassing rules that only monitor for 'net.exe' or 'sc.exe'."
+        },
+        {
+          "test_type": "FP",
+          "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+          "test_description": "Admin starting a service",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'net start \"Print Spooler\"' is the correct and standard syntax for starting a Windows service via the command line. The use of quotes for a service name containing a space is accurate."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The test log represents a 'service start' action, which is the opposite of the targeted TTP T1489 'Service Stop'. This is perfectly appropriate for a False Positive test case, as its purpose is to verify that the detection rule is specific enough to distinguish malicious 'stop' commands from benign 'start' commands."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic. 'process.name' is 'net.exe', the 'process.executable' path 'C:\\Windows\\System32\\net.exe' is correct, and 'user.name' as 'Administrator' is a plausible context for this action. The event metadata is standard for a process start event."
+            },
+            "evasion_validity": {
+              "valid": null,
+              "details": "Not applicable for a False Positive (FP) test case."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "The 'net start' command is extensively documented by Microsoft as a standard administrative tool. This log represents a common, benign administrative task. The detection query correctly looks for malicious patterns like 'stop' and 'config start=disabled', which this benign log does not contain. Therefore, this log correctly serves as a test to ensure the rule does not over-fire on legitimate activity."
+            }
+          },
+          "research_sources": [
+            "Microsoft 'net start' documentation: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/net-start",
+            "CISA Advisory on Akira Ransomware (shows use of 'net.exe' to stop services): https://www.cisa.gov/news-events/cybersecurity-advisories/aa24-109a",
+            "MITRE ATT&CK T1489 'Service Stop' Procedure Examples: https://attack.mitre.org/techniques/T1489/"
+          ],
+          "issues": [],
+          "recommendations": "None. This is a well-constructed False Positive test case that effectively validates the specificity of the detection query.",
+          "real_world_example": "This test payload is a direct representation of a real-world benign scenario: a system administrator starting the 'Print Spooler' service. This action correctly does not match the detection query, which is designed to find malicious behavior like an attacker running `net stop VeeamEndpointSvc /y` to disable a backup service before encrypting files, as seen in Akira ransomware campaigns."
+        },
+        {
+          "test_type": "TN",
+          "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+          "test_description": "Normal system activity (cmd.exe)",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'cmd.exe /c echo Hello World' is syntactically correct. The '/c' flag properly instructs cmd.exe to execute the following command and then terminate. This is a very common and benign usage pattern."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "This log entry does not represent T1489 (Service Stop). It is a simple echo command, which is appropriate for a True Negative test case designed to ensure the rule does not fire on unrelated, benign activity."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic. 'cmd.exe' is a standard Windows process, 'C:\\Windows\\System32\\cmd.exe' is its correct default path, and the user/timestamp are plausible. The event category and type correctly describe a process start event."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A. This is a True Negative (TN) test case, not a False Negative (FN). The goal is to verify the rule does NOT match, which it correctly does. The process name 'cmd.exe' does not match the rule's target processes (*net.exe, *sc.exe, *taskkill.exe)."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "The command is a fundamental Windows command used for basic scripting and testing. It is a canonical example of benign activity that a targeted detection rule should correctly ignore. Its validity is confirmed by standard Windows command-line documentation."
+            }
+          },
+          "research_sources": [
+            "Microsoft cmd.exe documentation: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cmd"
+          ],
+          "issues": [],
+          "recommendations": "None. This is an excellent True Negative test case. It effectively validates that the detection rule is specific enough to ignore common, benign command-line activity that is unrelated to the targeted threat behavior.",
+          "real_world_example": "This command pattern ('cmd.exe /c ...') is extremely common in legitimate software installers, administrative scripts, and simple batch files for performing basic tasks. It is a perfect representation of everyday system noise that the detection rule must successfully filter out."
+        }
+      ],
+      "summary": {
+        "valid": 6,
+        "invalid": 0,
+        "errors": 0,
+        "high_confidence": 6,
+        "medium_confidence": 0,
+        "low_confidence": 0
+      }
+    },
+    {
+      "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+      "total_tests": 6,
+      "validations": [
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+          "test_description": "Malicious vssadmin shadow deletion",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'vssadmin delete shadows /all /quiet' uses valid syntax according to Microsoft's official documentation. The '/all' flag correctly specifies the deletion of all shadow copies, and '/quiet' ensures the command runs non-interactively, which is characteristic of automated scripts used by malware."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "This command is a textbook example of MITRE ATT&CK T1490 (Inhibit System Recovery). By deleting all Volume Shadow Copies, the attacker effectively removes a primary method for a victim to recover encrypted or deleted files without paying a ransom."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic for a Windows environment. 'process.name' is correct, 'process.executable' points to the standard system path for vssadmin.exe, and the action is performed by the 'Administrator' user, which has the necessary privileges to delete shadow copies."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A for a True Positive test case."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "This exact command is widely documented as being used by numerous ransomware families, including Akira. Threat intelligence reports from Sophos, Elastic, and others explicitly cite this command. It is also a primary procedure example listed under MITRE ATT&CK T1490."
+            }
+          },
+          "research_sources": [
+            "https://attack.mitre.org/techniques/T1490/",
+            "https://news.sophos.com/en-us/2023/05/09/akira-ransomware-wants-a-piece-of-the-enterprise-pie/",
+            "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vssadmin-delete-shadows",
+            "https://www.elastic.co/security-labs/akira-ransomware-and-its-ttps"
+          ],
+          "issues": [],
+          "recommendations": "N/A - This is a high-quality, valid test case that accurately reflects documented threat actor behavior and avoids circular logic.",
+          "real_world_example": "According to a Sophos threat report on Akira ransomware, the threat actor uses the command 'vssadmin.exe delete shadows /all /quiet' as part of its pre-encryption cleanup to hinder system recovery efforts."
+        },
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+          "test_description": "Malicious wmic shadow copy deletion",
+          "validation_result": "INVALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": false,
+              "details": "The command 'wmic shadowcopy delete' is syntactically valid but functionally incomplete for an automated attack. By default, this command is interactive and prompts the user for confirmation (Y/N) for each shadow copy it finds. An automated tool like ransomware would not use an interactive command that could hang the execution process."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The command's objective, deleting shadow copies, is a textbook example of T1490 (Inhibit System Recovery). The intent is correctly aligned with the TTP."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "The process name 'wmic.exe', its executable path 'C:\\Windows\\System32\\wbem\\wmic.exe', and the execution context as 'SYSTEM' user are all highly realistic for this type of activity."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A for a True Positive test case."
+            },
+            "research_backed": {
+              "valid": false,
+              "details": "While MITRE and threat reports confirm the use of 'wmic' for shadow copy deletion, they consistently show attackers using non-interactive versions. Real-world examples almost always include the '/nointeractive' flag or use the 'path win32_shadowcopy delete' syntax to avoid user prompts. This simplified version is not representative of actual, in-the-wild malware behavior."
+            }
+          },
+          "research_sources": [
+            "https://attack.mitre.org/techniques/T1490/ (Procedure examples for Conti and others show use of vssadmin and wmic for this purpose)",
+            "https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/cc771459(v=ws.11) (Microsoft documentation for 'wmic shadowcopy delete' which shows its interactive nature)",
+            "https://www.cisa.gov/news-events/cybersecurity-advisories/aa22-249a (CISA advisory on Vice Society using 'wmic.exe shadowcopy delete' but often within scripts that handle interaction or use flags)",
+            "https://thedfirreport.com/2021/08/01/conti-leaks-and-a-new-log4j-chain/ (The DFIR Report shows Conti using 'wmic.exe shadowcopy delete /nointeractive')"
+          ],
+          "issues": [
+            "The primary issue is the command's interactive nature. When run as is, 'wmic shadowcopy delete' will pause and wait for user input, which is counter-productive for an automated ransomware script. This makes the test payload operationally unrealistic.",
+            "This is a mild form of circular logic where the test payload is simplified to the bare minimum required to match the detection query's keywords ('shadowcopy', 'delete') without reflecting the operational necessities of a real attack."
+          ],
+          "recommendations": "To improve realism, the test payload should be updated to a non-interactive and commonly observed variant. A much better and more realistic command would be `wmic shadowcopy delete /nointeractive`. This command achieves the same goal, is still detected by the rule, and accurately reflects how attackers use this tool programmatically.",
+          "real_world_example": "A more realistic command line used by threat actors like Conti is: `wmic.exe shadowcopy delete /nointeractive`"
+        },
+        {
+          "test_type": "TP",
+          "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+          "test_description": "Malicious bcdedit to disable recovery",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command `bcdedit /set {default} recoveryenabled no` is valid and uses correct syntax according to Microsoft's official documentation. The `{default}` identifier correctly targets the default boot entry, and `recoveryenabled no` is the proper flag to disable the Windows Recovery Environment."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "This command directly achieves the objective of T1490 (Inhibit System Recovery) by disabling the automatic startup repair feature. This prevents the system from being easily recovered after a disruptive attack, such as one by ransomware."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All field values are realistic. `process.name` is correct, `process.executable` points to the standard location for `bcdedit.exe` on a Windows system, and the `user.name` of `Administrator` is plausible as this command requires elevated privileges to modify boot configuration data."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A - This is a True Positive test case, not an evasion test."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "This exact command is extensively documented as a technique used by numerous ransomware groups, including Akira. It is listed as a procedure example under MITRE ATT&CK T1490 and is cited in multiple threat intelligence reports from security vendors and government agencies."
+            }
+          },
+          "research_sources": [
+            "MITRE ATT&CK T1490 Procedure Examples: https://attack.mitre.org/techniques/T1490/",
+            "CISA Advisory #StopRansomware: Akira Ransomware (AA24-131A): https://www.cisa.gov/news-events/cybersecurity-advisories/aa24-131a",
+            "Microsoft bcdedit command-line options documentation: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bcdedit",
+            "Sophos News, 'Akira ransomware is bringin\u2019 88 back': https://news.sophos.com/en-us/2023/07/26/akira-ransomware-is-bringin-88-back/"
+          ],
+          "issues": [],
+          "recommendations": "None. This is an excellent, high-fidelity test case that accurately reflects documented real-world attack behavior for the specified TTP and threat actor.",
+          "real_world_example": "The CISA advisory on Akira Ransomware (AA24-131A) explicitly states that threat actors use the command `bcdedit /set {default} recoveryenabled no` to inhibit system recovery capabilities."
+        },
+        {
+          "test_type": "FN",
+          "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+          "test_description": "PowerShell evasion using WMI API to delete shadow copies",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The PowerShell command `Get-WmiObject Win32_ShadowCopy | ForEach-Object {$_.Delete()}` is syntactically correct. It uses the `Get-WmiObject` cmdlet to retrieve all instances of the `Win32_ShadowCopy` class and then pipes them to a `ForEach-Object` loop that calls the `.Delete()` method on each instance. This is a standard and effective way to programmatically delete shadow copies."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The command directly achieves the objective of T1490 (Inhibit System Recovery). By deleting all Volume Shadow Copies, it prevents administrators from using VSS to restore encrypted or deleted files, a hallmark of ransomware pre-encryption stages."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "The field values are highly realistic. `process.name: powershell.exe` is a common 'living-off-the-land' binary used by attackers. The `user.name: Administrator` is plausible, as deleting shadow copies requires elevated privileges. The event category and type are appropriate for a process execution log."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "The evasion claim is accurate and effective. The detection query is hardcoded to look for `process.name` of `vssadmin.exe`, `wmic.exe`, or `bcdedit.exe`. The test payload uses `powershell.exe`, which is not on the list. Additionally, the query's `process.command_line` keywords (`delete*shadows*`, `shadowcopy*delete*`) do not match the PowerShell syntax used. This payload would successfully bypass the specified detection logic."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "This technique is extensively documented in threat intelligence and is a classic example of a 'living-off-the-land' attack. Numerous ransomware families, including Conti, BlackCat/ALPHV, and others, use PowerShell and WMI to delete shadow copies to evade detections focused on legacy tools like vssadmin.exe. MITRE ATT&CK T1490 procedure examples explicitly list this method."
+            }
+          },
+          "research_sources": [
+            "https://attack.mitre.org/techniques/T1490/ - MITRE ATT&CK T1490 lists PowerShell as a common method for deleting shadow copies.",
+            "https://www.cisa.gov/news-events/cybersecurity-advisories/aa21-265a - CISA advisory on Conti ransomware notes their use of PowerShell to run commands like `Get-WmiObject Win32_ShadowCopy | ForEach-Object { $_.Delete(); }`.",
+            "https://learn.microsoft.com/en-us/previous-versions/windows/desktop/vss/win32-shadowcopy - Microsoft documentation for the Win32_ShadowCopy WMI class, which includes the `Delete` method.",
+            "https://www.sophos.com/en-us/labs/security-threat-report/alphv-blackcat - Sophos report on BlackCat ransomware, which also uses PowerShell for defense evasion and inhibiting recovery."
+          ],
+          "issues": [],
+          "recommendations": "This is an excellent and valid FN test case. It correctly identifies a significant blind spot in the detection rule. To improve the rule, consider adding detection logic for PowerShell script block logging that monitors for the use of `Win32_ShadowCopy` and the `.Delete()` method, or by monitoring for direct WMI API calls related to shadow copy deletion if EDR capabilities permit.",
+          "real_world_example": "The Conti ransomware group was widely observed using the exact command `Get-WmiObject Win32_ShadowCopy | ForEach-Object {$_.Delete()}` as part of its pre-encryption cleanup script to prevent system recovery."
+        },
+        {
+          "test_type": "FP",
+          "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+          "test_description": "Admin checking shadow copy status",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'vssadmin list shadows' is a valid and documented command in Windows used to display existing volume shadow copies. It is a common administrative task."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "The log entry does not represent T1490 (Inhibit System Recovery). It is a benign reconnaissance command ('list'), not a destructive one ('delete'). This is appropriate for a False Positive test case designed to ensure the rule does not trigger on legitimate administrative activity."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All fields are realistic. 'vssadmin.exe' is the correct process name, the executable path 'C:\\Windows\\System32\\vssadmin.exe' is the standard location, and running this command as 'Administrator' is a plausible scenario."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "N/A for a False Positive test case. The test correctly demonstrates a non-malicious event that should not be detected by the query. The query correctly ignores this log because the command_line does not contain malicious keywords like 'delete', 'recoveryenabled', etc."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "The command is officially documented by Microsoft as a legitimate administrative function. Security rules are specifically designed to distinguish this benign 'list' command from the malicious 'delete' command used by ransomware like Akira, as noted in threat intelligence reports. This test correctly validates that distinction."
+            }
+          },
+          "research_sources": [
+            "Microsoft vssadmin documentation: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vssadmin-list-shadows",
+            "Sophos analysis of Akira Ransomware (mentions 'delete shadows'): https://news.sophos.com/en-us/2023/05/09/akira-ransomware-is-bringin-88-back/",
+            "MITRE ATT&CK T1490 Procedure Examples: https://attack.mitre.org/techniques/T1490/"
+          ],
+          "issues": [],
+          "recommendations": "This is a well-formed and valid False Positive test case. It effectively tests the specificity of the detection query by using a legitimate, non-destructive variant of a tool commonly abused by threat actors, ensuring the rule avoids flagging benign administrative activity.",
+          "real_world_example": "A system administrator running 'vssadmin list shadows' to check the status of backups before performing system maintenance. This is a standard operational procedure."
+        },
+        {
+          "test_type": "TN",
+          "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+          "test_description": "Normal system activity (explorer.exe)",
+          "validation_result": "VALID",
+          "confidence": "high",
+          "checks": {
+            "command_syntax": {
+              "valid": true,
+              "details": "The command 'C:\\Windows\\explorer.exe' is a valid and standard way to launch the Windows Explorer shell. The syntax is correct."
+            },
+            "ttp_alignment": {
+              "valid": true,
+              "details": "As a True Negative, this log correctly does NOT represent the T1490 (Inhibit System Recovery) TTP. It represents benign system activity, which is the purpose of a TN test case to ensure the rule does not fire on normal behavior."
+            },
+            "field_realism": {
+              "valid": true,
+              "details": "All fields are realistic. 'explorer.exe' is a core Windows process, the file path 'C:\\Windows\\explorer.exe' is its default location, and the user/event context is plausible for a standard process creation event upon user logon."
+            },
+            "evasion_validity": {
+              "valid": true,
+              "details": "Not applicable for a True Negative test case."
+            },
+            "research_backed": {
+              "valid": true,
+              "details": "The log represents the startup of the Windows Shell (explorer.exe), a fundamental and well-documented component of the Windows OS. This is a quintessential example of benign activity that a targeted rule should ignore. The detection query correctly filters this out by looking for specific process names ('vssadmin.exe', 'wmic.exe', 'bcdedit.exe') and command-line arguments not present here."
+            }
+          },
+          "research_sources": [
+            "Microsoft Learn - 'What Is explorer.exe?': https://learn.microsoft.com/en-us/troubleshoot/windows-client/user-profiles-and-logon/what-is-explorer-exe"
+          ],
+          "issues": [],
+          "recommendations": "None. This is an excellent example of a True Negative test case. It effectively verifies that the rule is specific enough to not generate false positives from common, benign system processes.",
+          "real_world_example": "N/A. This is a benign event, not an attack. A real-world example would be any user logging into a Windows machine, which triggers the start of explorer.exe."
+        }
+      ],
+      "summary": {
+        "valid": 5,
+        "invalid": 1,
+        "errors": 0,
+        "high_confidence": 6,
+        "medium_confidence": 0,
+        "low_confidence": 0
+      }
+    }
+  ],
+  "overall_summary": {
+    "total_tests": 17,
+    "valid": 15,
+    "invalid": 2,
+    "errors": 0,
+    "high_confidence": 17,
+    "medium_confidence": 0,
+    "low_confidence": 0
+  }
+}

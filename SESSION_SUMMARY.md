@@ -34,15 +34,26 @@
 
 **Ready for:** Splunk, Chronicle, Microsoft Sentinel, Elastic Security
 
-### 4. ✅ TTP Intent Validator Foundation (Backlog #0)
+### 4. ✅ TTP Intent Validator - TESTED & OPERATIONAL (Backlog #0)
 **Purpose:** Prevent circular logic, ensure test payloads match real attacks
 **Components:**
-- TTP validator prompt (comprehensive research guide)
-- TTP validator tool (Gemini 2.5 Pro + thinking mode)
-- Test script for validation
+- TTP validator prompt (comprehensive research guide with validation criteria)
+- TTP validator tool (Gemini 2.5 Pro, async validation)
+- Test scripts (test_ttp_validator.py, demo_ttp_validation.py)
 
-**Status:** Foundation complete, ready for integration testing
-**Next:** Integrate into main pipeline, test with production rules
+**Status:** ✅ **TESTED AND WORKING**
+**Test Results:** 17 test cases validated across 3 production rules
+- 15 VALID test cases (88% pass rate, high confidence)
+- 2 INVALID test cases detected (exactly what we want!)
+- 0 errors
+
+**Issues Found (Proof of Effectiveness):**
+1. **Invalid FP test case**: Ransom note rule FP test is actually a TN (doesn't match detection pattern)
+2. **Invalid TP test case**: WMIC command uses interactive mode (unrealistic for automated ransomware)
+   - Recommendation: Use `wmic shadowcopy delete /nointeractive` instead
+   - Research sources: MITRE ATT&CK, Microsoft docs, CISA advisories, The DFIR Report
+
+**Next:** Integrate into main pipeline after iterative validation (step 3.5), add regeneration loop for invalid payloads
 
 ---
 

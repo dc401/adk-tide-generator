@@ -3,6 +3,8 @@
 
 import asyncio
 import json
+import os
+import subprocess
 import yaml
 from pathlib import Path
 from google import genai
@@ -18,11 +20,25 @@ async def main():
     with open(prompt_path) as f:
         ttp_validator_prompt = f.read()
 
+    #get GCP project from env or gcloud config
+    project = os.getenv('GOOGLE_CLOUD_PROJECT')
+    if not project:
+        try:
+            project = subprocess.check_output(['gcloud', 'config', 'get-value', 'project'], text=True).strip()
+        except:
+            project = None
+
+    if not project:
+        print("ERROR: GCP project not configured. Set GOOGLE_CLOUD_PROJECT or run 'gcloud config set project PROJECT_ID'")
+        return
+
+    print(f"Using GCP project: {project}\n")
+
     #initialize Gemini client
     client = genai.Client(
         vertexai=True,
-        project='your-project-id',  #will use env vars
-        location='global'
+        project=project,
+        location='us-central1'
     )
 
     #load production rules

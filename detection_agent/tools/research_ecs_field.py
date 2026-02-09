@@ -39,10 +39,7 @@ If you cannot find definitive information, set confidence to "low" and valid to 
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,  #deterministic for schema research
-                response_modalities=['TEXT'],
-                thinking_config=types.ThinkingConfig(
-                    mode=types.ThinkingMode.THINKING
-                )
+                response_modalities=['TEXT']
             )
         )
         

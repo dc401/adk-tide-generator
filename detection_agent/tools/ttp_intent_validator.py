@@ -92,10 +92,7 @@ async def validate_test_payload(
             contents=validation_prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,  #deterministic for validation
-                response_modalities=['TEXT'],
-                thinking_config=types.ThinkingConfig(
-                    mode=types.ThinkingMode.THINKING
-                )
+                response_modalities=['TEXT']
             )
         )
 
