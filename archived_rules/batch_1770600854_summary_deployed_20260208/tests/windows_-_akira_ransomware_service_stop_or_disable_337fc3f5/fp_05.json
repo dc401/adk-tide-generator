@@ -1,0 +1,22 @@
+{
+  "type": "FP",
+  "description": "Admin starting a service",
+  "log_entry": {
+    "event": {
+      "category": "process",
+      "type": "start",
+      "code": 1
+    },
+    "process": {
+      "name": "net.exe",
+      "command_line": "net start \"Print Spooler\"",
+      "executable": "C:\\Windows\\System32\\net.exe"
+    },
+    "user": {
+      "name": "Administrator"
+    },
+    "@timestamp": "2024-03-14T11:00:00Z"
+  },
+  "expected_match": false,
+  "evasion_technique": null
+}

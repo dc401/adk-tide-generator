@@ -1,0 +1,90 @@
+{
+  "batch_id": "batch_1770600854",
+  "staged_timestamp": "2026-02-08T20:34:14.557257",
+  "rules_staged": 3,
+  "quality_threshold": 0.75,
+  "rules": [
+    {
+      "rule_name": "Windows - Akira Ransomware Note Creation",
+      "rule_file": "windows_-_akira_ransomware_note_creation_b229133d.yml",
+      "uid": "b229133d",
+      "batch_id": "batch_1770600854",
+      "staged_timestamp": "2026-02-08T20:34:14.527870",
+      "quality_validation": {
+        "overall_score": 0.9,
+        "validator": "Gemini 2.5 Pro",
+        "passed_threshold": true
+      },
+      "integration_test_metrics": {},
+      "mitre_ttps": [
+        {
+          "tactic_id": "TA0040",
+          "tactic_name": "Impact",
+          "technique_id": "T1486",
+          "technique_name": "Data Encrypted for Impact"
+        }
+      ],
+      "references": [
+        "https://attack.mitre.org/techniques/T1486/",
+        "https://www.elastic.co/guide/en/ecs/current/ecs-file.html"
+      ],
+      "severity": "critical",
+      "risk_score": 95
+    },
+    {
+      "rule_name": "Windows - Akira Ransomware Service Stop or Disable",
+      "rule_file": "windows_-_akira_ransomware_service_stop_or_disable_337fc3f5.yml",
+      "uid": "337fc3f5",
+      "batch_id": "batch_1770600854",
+      "staged_timestamp": "2026-02-08T20:34:14.539953",
+      "quality_validation": {
+        "overall_score": 0.9,
+        "validator": "Gemini 2.5 Pro",
+        "passed_threshold": true
+      },
+      "integration_test_metrics": {},
+      "mitre_ttps": [
+        {
+          "tactic_id": "TA0040",
+          "tactic_name": "Impact",
+          "technique_id": "T1489",
+          "technique_name": "Service Stop"
+        }
+      ],
+      "references": [
+        "https://attack.mitre.org/techniques/T1489/",
+        "https://www.elastic.co/guide/en/ecs/current/ecs-process.html"
+      ],
+      "severity": "high",
+      "risk_score": 75
+    },
+    {
+      "rule_name": "Windows - Akira Ransomware Shadow Copy Deletion",
+      "rule_file": "windows_-_akira_ransomware_shadow_copy_deletion_c49358a7.yml",
+      "uid": "c49358a7",
+      "batch_id": "batch_1770600854",
+      "staged_timestamp": "2026-02-08T20:34:14.552402",
+      "quality_validation": {
+        "overall_score": 0.9,
+        "validator": "Gemini 2.5 Pro",
+        "passed_threshold": true
+      },
+      "integration_test_metrics": {},
+      "mitre_ttps": [
+        {
+          "tactic_id": "TA0040",
+          "tactic_name": "Impact",
+          "technique_id": "T1490",
+          "technique_name": "Inhibit System Recovery"
+        }
+      ],
+      "references": [
+        "https://attack.mitre.org/techniques/T1490/",
+        "https://www.elastic.co/guide/en/ecs/current/ecs-process.html"
+      ],
+      "severity": "high",
+      "risk_score": 80
+    }
+  ],
+  "overall_metrics": {}
+}

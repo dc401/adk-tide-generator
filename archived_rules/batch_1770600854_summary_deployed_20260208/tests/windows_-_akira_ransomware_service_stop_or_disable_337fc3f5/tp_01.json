@@ -1,0 +1,22 @@
+{
+  "type": "TP",
+  "description": "Malicious net stop command for a backup service",
+  "log_entry": {
+    "event": {
+      "category": "process",
+      "type": "start",
+      "code": 1
+    },
+    "process": {
+      "name": "net.exe",
+      "command_line": "net stop \"Veeam Backup Service\" /y",
+      "executable": "C:\\Windows\\System32\\net.exe"
+    },
+    "user": {
+      "name": "Administrator"
+    },
+    "@timestamp": "2024-03-12T22:20:00Z"
+  },
+  "expected_match": true,
+  "evasion_technique": null
+}

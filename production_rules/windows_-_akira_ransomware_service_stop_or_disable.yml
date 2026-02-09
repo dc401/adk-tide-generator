@@ -1,0 +1,140 @@
+name: Windows - Akira Ransomware Service Stop or Disable
+description: Detects attempts by Akira ransomware to stop or disable critical Windows
+  services using command-line utilities like net, sc, or taskkill. This action is
+  often taken to unlock files for encryption or disable security products.
+type: query
+query: event.category:process AND event.type:start AND process.name:(*net.exe OR *sc.exe
+  OR *taskkill.exe) AND process.command_line:(*stop* *y* OR *config*start*=disabled*
+  OR *taskkill*F*IM*)
+language: lucene
+index:
+- winlogbeat-*
+- logs-*
+- filebeat-*
+filters: []
+risk_score: 75
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1489
+    name: Service Stop
+    reference: https://attack.mitre.org/techniques/T1489/
+references:
+- https://attack.mitre.org/techniques/T1489/
+- https://www.elastic.co/guide/en/ecs/current/ecs-process.html
+author:
+- Detection Agent
+false_positives:
+- System administrators performing legitimate service management or troubleshooting.
+- Legitimate software installation or uninstallation processes.
+note: '## Triage
+
+  Investigate: the service name being stopped/disabled, user context, and frequency
+  of such events. Look for multiple service stops in a short period.
+
+  Escalate if: critical security or backup services are targeted, executed by an unusual
+  user, or occurs during non-business hours.'
+test_cases:
+- type: TP
+  description: Malicious net stop command for a backup service
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: net.exe
+      command_line: net stop "Veeam Backup Service" /y
+      executable: C:\Windows\System32\net.exe
+    user:
+      name: Administrator
+    '@timestamp': '2024-03-12T22:20:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious sc config to disable a security service
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: sc.exe
+      command_line: sc config "Sophos Agent" start= disabled
+      executable: C:\Windows\System32\sc.exe
+    user:
+      name: Administrator
+    '@timestamp': '2024-03-12T22:20:15Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious taskkill to terminate a database process
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: taskkill.exe
+      command_line: taskkill /F /IM sqlservr.exe
+      executable: C:\Windows\System32\taskkill.exe
+    user:
+      name: SYSTEM
+    '@timestamp': '2024-03-12T22:20:30Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: PowerShell evasion using Stop-Service cmdlet
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: powershell.exe
+      command_line: Stop-Service -Name "MSSQLSERVER" -Force
+      executable: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    user:
+      name: Administrator
+    '@timestamp': '2024-03-12T22:21:00Z'
+  expected_match: false
+  evasion_technique: Uses PowerShell cmdlets (Stop-Service, Set-Service) directly
+    instead of command-line utilities (net, sc, taskkill), bypassing detection focused
+    on specific executable names and command-line arguments.
+- type: FP
+  description: Admin starting a service
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: net.exe
+      command_line: net start "Print Spooler"
+      executable: C:\Windows\System32\net.exe
+    user:
+      name: Administrator
+    '@timestamp': '2024-03-14T11:00:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal system activity (cmd.exe)
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: cmd.exe
+      command_line: cmd.exe /c echo Hello World
+      executable: C:\Windows\System32\cmd.exe
+    user:
+      name: User2
+    '@timestamp': '2024-03-14T11:05:00Z'
+  expected_match: false
+  evasion_technique: null

@@ -1,0 +1,21 @@
+{
+  "type": "FN",
+  "description": "PowerShell evasion using WMI API to delete shadow copies",
+  "log_entry": {
+    "event": {
+      "category": "process",
+      "type": "start",
+      "code": 1
+    },
+    "process": {
+      "name": "powershell.exe",
+      "command_line": "Get-WmiObject Win32_ShadowCopy | ForEach-Object {$_.Delete()}"
+    },
+    "user": {
+      "name": "Administrator"
+    },
+    "@timestamp": "2024-03-12T22:16:00Z"
+  },
+  "expected_match": false,
+  "evasion_technique": "Uses PowerShell cmdlets and WMI API directly instead of command-line tools (vssadmin, wmic, bcdedit), bypassing detection focused on specific executable names and command-line arguments."
+}
