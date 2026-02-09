@@ -504,6 +504,53 @@ except InvalidResponse as e:
 
 ---
 
+### 8. Production-Ready Workflow Naming
+**Priority:** Medium
+**Status:** Pending
+
+**Goal:** Rename "End-to-End Detection Pipeline Test" to production-appropriate name and update all references.
+
+**Current Issues:**
+- Workflow name "End-to-End Detection Pipeline Test" sounds like development/testing
+- Repository is now production-ready but naming suggests it's still in test phase
+- Need consistent, professional naming across all workflows
+
+**Proposed Changes:**
+
+1. **Rename Workflow:**
+   - Current: "End-to-End Detection Pipeline Test"
+   - Proposed: "Detection Pipeline - Full Orchestration" or "Automated Detection Engineering Pipeline"
+   - File: `.github/workflows/end-to-end-test.yml`
+
+2. **Update All References:**
+   - README.md - workflow descriptions and diagrams
+   - END_TO_END_TEST.md - document title and references
+   - BACKLOG.md - this file
+   - SESSION_SUMMARY.md - workflow mentions
+   - Any other documentation
+
+3. **Review All Workflow Names for Production Readiness:**
+   - ✓ "Generate Detection Rules from CTI" - good
+   - ✓ "Integration Test - Elasticsearch" - good
+   - ✓ "Mock SIEM Deployment" - good
+   - ✓ "Cleanup Stale Artifacts" - good
+   - ⚠️  "End-to-End Detection Pipeline Test" - needs update
+
+**Files to modify:**
+- `.github/workflows/end-to-end-test.yml` - workflow name
+- `README.md` - all references and diagrams
+- `END_TO_END_TEST.md` - document title
+- `BACKLOG.md` - this entry when complete
+- `SESSION_SUMMARY.md` - workflow references
+
+**Success Criteria:**
+- All workflow names sound production-ready
+- No references to "test" unless actually for testing
+- Documentation consistently uses new name
+- No broken links or references
+
+---
+
 ## Completed Tasks
 
 ### ✅ Iterative Validation System (Stage 3.5)
