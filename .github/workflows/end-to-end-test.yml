@@ -475,3 +475,74 @@ jobs:
           fi
 
           echo "✓ Pipeline completed (check warnings above)"
+
+  create-review-pr:
+    name: Auto-Create Review PR
+    runs-on: ubuntu-latest
+    needs: [generate, integration-test, ttp-validation, summary]
+    if: |
+      always() &&
+      needs.integration-test.result == 'success' &&
+      needs.integration-test.outputs.recall >= '0.70'
+    permissions:
+      contents: write
+      pull-requests: write
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download Detection Rules
+        uses: actions/download-artifact@v4
+        with:
+          name: detection-rules
+          path: generated/
+
+      - name: Download Test Results
+        uses: actions/download-artifact@v4
+        with:
+          name: integration-test-results
+          path: ./
+
+      - name: Auto-Create Review PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRECISION: ${{ needs.integration-test.outputs.precision }}
+          RECALL: ${{ needs.integration-test.outputs.recall }}
+        run: |
+          echo "Auto-creating PR for human review..."
+          echo "  Recall: ${RECALL} (threshold met: ≥0.70)"
+          echo "  Precision: ${PRECISION}"
+
+          python3 scripts/create_manual_review_pr.py
+
+      - name: Deployment Eligible Check
+        run: |
+          PRECISION="${{ needs.integration-test.outputs.precision }}"
+          RECALL="${{ needs.integration-test.outputs.recall }}"
+
+          echo "================================"
+          echo "DEPLOYMENT ELIGIBILITY"
+          echo "================================"
+          echo "Precision: $PRECISION (target: ≥0.60)"
+          echo "Recall: $RECALL (target: ≥0.70)"
+
+          if (( $(echo "$PRECISION >= 0.60" | bc -l) )) && (( $(echo "$RECALL >= 0.70" | bc -l) )); then
+            echo "✅ FULLY MEETS THRESHOLDS - Ready for immediate deployment"
+          elif (( $(echo "$RECALL >= 0.70" | bc -l) )); then
+            echo "⚠️  PARTIAL - Recall met, precision needs tuning in production"
+          else
+            echo "❌ BELOW THRESHOLDS - Review and iterate"
+          fi
