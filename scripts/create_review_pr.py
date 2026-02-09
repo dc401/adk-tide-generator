@@ -136,7 +136,11 @@ def main():
     branch_name = f"detection-review-{timestamp}"
     
     print(f"Creating PR for batch {batch_id}...")
-    
+
+    #configure git identity (required for GitHub Actions)
+    subprocess.run(['git', 'config', 'user.name', 'Detection Pipeline Bot'], check=True)
+    subprocess.run(['git', 'config', 'user.email', 'bot@detections.example.com'], check=True)
+
     subprocess.run(['git', 'checkout', '-b', branch_name], check=True)
     subprocess.run(['git', 'add', 'staged_rules/', 'scripts/'], check=True)
     
@@ -155,8 +159,7 @@ def main():
         '--base', 'main',
         '--head', branch_name,
         '--title', f"Review Detection Rules - {datetime.now().strftime('%Y-%m-%d')}",
-        '--body-file', str(pr_body_file),
-        '--label', 'detection-review'
+        '--body-file', str(pr_body_file)
     ], capture_output=True, text=True)
     
     pr_body_file.unlink()
