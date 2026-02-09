@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """quality-driven retry loop for detection rule generation"""
 
-import asyncio
 import json
 import subprocess
-import sys
 from pathlib import Path
-from datetime import datetime
 from typing import Dict, Optional
 
 from detection_agent.agent import run_detection_agent
