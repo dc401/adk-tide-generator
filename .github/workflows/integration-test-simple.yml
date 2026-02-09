@@ -94,46 +94,47 @@ jobs:
           echo "ERROR: Elasticsearch failed to start within 60 seconds"
           exit 1
 
-      - name: Validate Rules with Elasticsearch
-        timeout-minutes: 2
+      - name: Execute Detection Tests
+        timeout-minutes: 5
         run: |
-          echo "Testing rule deployment to Elasticsearch..."
+          echo "Executing detection tests with test payloads..."
 
-          # Count rules
-          RULE_COUNT=$(find generated/detection_rules -name "*.yml" | wc -l)
-          echo "Testing $RULE_COUNT rules"
+          set -e  #fail fast on errors
 
-          # Simple validation: check if ES accepts the rules
-          SUCCESS=0
-          for rule_file in generated/detection_rules/*.yml; do
-            RULE_NAME=$(basename "$rule_file" .yml)
-            echo "  Testing: $RULE_NAME"
+          python3 scripts/execute_detection_tests.py \
+            --rules-dir generated/detection_rules \
+            --es-url http://localhost:9200
 
-            # Extract query from YAML (simple grep - real implementation would use yq)
-            if grep -q "query:" "$rule_file"; then
-              SUCCESS=$((SUCCESS + 1))
-              echo "    ✓ Has query field"
-            else
-              echo "    ✗ Missing query field"
-            fi
-          done
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test_results.json
 
-          echo ""
-          echo "✓ Validated $SUCCESS/$RULE_COUNT rules"
+      - name: Display Test Summary
+        if: always()
+        run: |
+          if [ -f test_results.json ]; then
+            echo "================================"
+            echo "TEST RESULTS SUMMARY"
+            echo "================================"
 
-          if [ "$SUCCESS" -eq "$RULE_COUNT" ]; then
-            echo "✓ All rules have required fields"
+            cat test_results.json | jq -r '
+              "Timestamp: \(.timestamp)",
+              "Rules Tested: \(.rules_tested)",
+              "",
+              "Overall Metrics:",
+              "  Total Tests: \(.overall_metrics.total)",
+              "  TP: \(.overall_metrics.TP)  FN: \(.overall_metrics.FN)  FP: \(.overall_metrics.FP)  TN: \(.overall_metrics.TN)",
+              "  Precision: \(.overall_metrics.precision * 100)%",
+              "  Recall: \(.overall_metrics.recall * 100)%",
+              "  F1 Score: \(.overall_metrics.f1_score)",
+              "  Accuracy: \(.overall_metrics.accuracy * 100)%"
+            '
+
+            echo ""
+            echo "✓ Full results uploaded as artifact: test-results"
           else
-            echo "⚠️  Some rules missing fields"
+            echo "⚠️  No test results file found"
           fi
-
-      - name: Test Complete
-        run: |
-          echo "================================"
-          echo "✓ Integration Test Complete"
-          echo "================================"
-          echo ""
-          echo "- Elasticsearch: Running"
-          echo "- Rules validated: ✓"
-          echo ""
-          echo "Next: Add test payload execution"
