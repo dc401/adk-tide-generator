@@ -14,6 +14,37 @@ Production-ready automated detection engineering solution that converts CTI inte
 - **Security Hardened:** OWASP LLM Top 10 protection, input validation, output sanitization
 - **GitHub-Only Infrastructure:** No persistent cloud resources required
 
+## Automatic Region Rotation
+
+**Quota Management:** The system automatically rotates through 8 GCP Vertex AI regions to distribute API quota usage and avoid exhaustion.
+
+**Regions:**
+- us-central1
+- global
+- us-south1
+- us-east5
+- us-west1
+- us-east1
+- us-east4
+- us-west4
+
+**How It Works:**
+- Region selected automatically based on current UTC hour
+- Rotates every hour (24-hour cycle covers all regions 3 times)
+- Same region used throughout entire pipeline run
+- No manual configuration needed
+- 8x quota capacity vs single region
+
+**Example:**
+```
+Hour 00, 08, 16 UTC → us-central1
+Hour 01, 09, 17 UTC → global
+Hour 02, 10, 18 UTC → us-south1
+...and so on
+```
+
+This means you can run the pipeline multiple times per day without hitting quota limits, as each hour uses a different region's quota pool.
+
 ## Architecture
 
 ```
@@ -88,8 +119,9 @@ pip install -r requirements.txt
 
 #3. configure GCP
 export GOOGLE_CLOUD_PROJECT="your-project-id"
-export GOOGLE_CLOUD_LOCATION="us-central1"
 gcloud auth application-default login
+
+#note: region is auto-selected via round-robin rotation (no manual config needed)
 
 #4. add CTI files
 mkdir -p cti_src
@@ -122,8 +154,10 @@ Prompts you for:
 python run_agent.py \
   --cti-folder cti_src \
   --output generated \
-  --project YOUR_GCP_PROJECT \
-  --location us-central1
+  --project YOUR_GCP_PROJECT
+
+#note: --location is optional; defaults to auto-selected region in CI/CD
+#      or 'global' for local development
 ```
 
 ### With Self-Healing Refinement (Default)
@@ -626,10 +660,14 @@ gcloud config get-value project
 
 #set project if not configured
 export GOOGLE_CLOUD_PROJECT="your-project-id"
-export GOOGLE_CLOUD_LOCATION="us-central1"
+
+#note: region auto-selected via round-robin (no GOOGLE_CLOUD_LOCATION needed)
 ```
 
 ### Quota Exhaustion
+
+**Note:** The system now automatically rotates through 8 regions to avoid quota exhaustion. If you still hit quota limits:
+
 ```bash
 #check quota usage
 gcloud alpha services quota list \

@@ -320,6 +320,9 @@ if ! is_complete "github_setup"; then
         echo "$PROJECT_ID" | gh secret set GCP_PROJECT_ID --repo="$REPO"
 
         echo "  ✓ Secrets uploaded to GitHub"
+        echo "  ✓ GCP_SA_KEY: Service account credentials"
+        echo "  ✓ GCP_PROJECT_ID: Project ID"
+        echo "  Note: Region auto-selected via round-robin (no GOOGLE_CLOUD_LOCATION needed)"
 
         #add GitHub topics for consistent tagging
         ENV_TAG=$(get_state "environment")
@@ -423,8 +426,10 @@ if ! is_complete "local_setup"; then
         cat > .env << EOF
 #GCP configuration (for local development only)
 GOOGLE_CLOUD_PROJECT=$PROJECT_ID
-GOOGLE_CLOUD_LOCATION=us-central1
 GOOGLE_GENAI_USE_VERTEXAI=true
+
+#note: region auto-selected in CI/CD via round-robin rotation
+#      for local dev, agent defaults to 'global' if not specified
 
 #DO NOT SET CREDENTIALS PATH - use gcloud auth for local dev
 #GitHub Actions will use secrets
