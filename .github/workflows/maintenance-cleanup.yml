@@ -188,17 +188,16 @@ jobs:
             git add -A
 
             #commit with details
-            COMMIT_MSG="chore: weekly cleanup of stale artifacts [skip ci]
+            git commit -m "chore: weekly cleanup of stale artifacts [skip ci]
 
-Cleaned stale generated artifacts not tied to open PRs.
+            Cleaned stale generated artifacts not tied to open PRs.
 
-Protected:
-- generated/production_rules/ (human-approved rules)
-- Files linked to open PRs
+            Protected:
+            - generated/production_rules/ (human-approved rules)
+            - Files linked to open PRs
 
-Automated cleanup via scheduled workflow."
+            Automated cleanup via scheduled workflow."
 
-            git commit -m "$COMMIT_MSG"
             git push
 
             echo "changes=true" >> $GITHUB_OUTPUT
