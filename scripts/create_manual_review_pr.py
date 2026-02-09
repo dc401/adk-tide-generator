@@ -7,6 +7,7 @@ includes detailed summary with metrics, test results, and tuning recommendations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List
@@ -290,6 +291,19 @@ def stage_rules_and_create_pr():
         with open(staged_dir / 'test_results.json', 'w') as f:
             json.dump(results, f, indent=2)
         print(f"   ✓ Staged: test_results.json")
+
+    #create batch summary for mock deployment workflow
+    batch_id = f"batch_{int(time.time())}"
+    batch_summary = {
+        'batch_id': batch_id,
+        'timestamp': datetime.now().isoformat(),
+        'rules_staged': len(list(staged_dir.glob('*.yml'))),
+        'metrics': results.get('overall_metrics', {}) if results else {},
+        'source': 'manual_review_pr'
+    }
+    with open(staged_dir / f'{batch_id}.json', 'w') as f:
+        json.dump(batch_summary, f, indent=2)
+    print(f"   ✓ Staged: {batch_id}.json")
 
     #4. create PR body
     print("\n📝 Generating PR description...")
