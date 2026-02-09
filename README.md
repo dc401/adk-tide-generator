@@ -342,46 +342,155 @@ adk-tide-generator/
 
 ## GitHub Actions Workflows
 
-### 1. End-to-End Test (Master Orchestration)
+### Workflow Orchestration
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  END-TO-END TEST (Master Orchestration)                       │
+│  .github/workflows/end-to-end-test.yml                        │
+└──────────────────────────────────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+        ▼                  ▼                  ▼
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│  GENERATE    │   │ INTEGRATION  │   │ TTP VALIDATE │
+│  (reuses)    │   │   TEST       │   │ (optional)   │
+│              │   │  (inline)    │   │  (inline)    │
+│ generate-    │   │              │   │              │
+│ detections   │   │ Downloads    │   │ Downloads    │
+│ .yml via     │   │ artifacts    │   │ artifacts    │
+│ workflow_    │   │              │   │              │
+│ call         │   │ Starts       │   │ Runs TTP     │
+│              │   │ Docker ES    │   │ validator    │
+│ Uploads:     │   │              │   │              │
+│ detection-   │   │ Uploads:     │   │ Uploads:     │
+│ rules        │   │ test-results │   │ ttp-report   │
+└──────────────┘   └──────────────┘   └──────────────┘
+        │                  │                  │
+        └──────────────────┼──────────────────┘
+                           ▼
+                   ┌──────────────┐
+                   │   SUMMARY    │
+                   │   (inline)   │
+                   │              │
+                   │ Downloads    │
+                   │ all artifacts│
+                   │              │
+                   │ Generates    │
+                   │ report       │
+                   │              │
+                   │ Uploads:     │
+                   │ pipeline-    │
+                   │ summary      │
+                   └──────────────┘
+```
+
+### Workflow Descriptions
+
+#### 1. End-to-End Test (Master Orchestration)
 **File:** `.github/workflows/end-to-end-test.yml`
 **Trigger:** Manual dispatch
 **Runtime:** 6-12 minutes
 
-Orchestrates complete pipeline:
-1. Generate detection rules (or skip with existing run_id)
-2. Integration test with ephemeral Elasticsearch
-3. TTP Intent Validation (optional)
-4. Aggregate results into summary report
+**What it orchestrates:**
+- Calls `generate-detections.yml` via `workflow_call` (reusable workflow)
+- Runs integration test inline (to avoid circular dependencies)
+- Runs TTP validation inline (optional)
+- Aggregates all results into summary report
 
-See [END_TO_END_TEST.md](END_TO_END_TEST.md) for usage.
+**Artifacts produced:**
+- `detection-rules` (from generation)
+- `integration-test-results` (test metrics)
+- `ttp-validation-report` (test case validation)
+- `pipeline-summary` (aggregated report)
 
-### 2. Generate Detection Rules
+**Usage:**
+```bash
+gh workflow run end-to-end-test.yml
+gh workflow run end-to-end-test.yml -f skip_generation=true -f existing_run_id=123456
+```
+
+See [END_TO_END_TEST.md](END_TO_END_TEST.md) for detailed documentation.
+
+---
+
+#### 2. Generate Detection Rules
 **File:** `.github/workflows/generate-detections.yml`
-**Trigger:** Manual dispatch or push to main with CTI changes
-**Runtime:** 3-4 minutes
+**Trigger:** Manual dispatch, workflow_call (from end-to-end-test), or push to main
+**Runtime:** 3-5 minutes (15min timeout for multiple CTI files)
 
-Workflow steps:
+**When triggered:**
+- **Manually:** `gh workflow run generate-detections.yml`
+- **Automatically:** Push to main with changes in `cti_src/**`, `detection_agent/**`, or `run_agent.py`
+- **From orchestration:** Called by `end-to-end-test.yml` via `workflow_call`
+
+**Workflow steps:**
 1. Clean stale artifacts
 2. Install dependencies
 3. Authenticate to GCP
-4. Check CTI files (security validation)
-5. Run detection agent with refinement
+4. Validate CTI files (security checks)
+5. Run detection agent with iterative refinement
 6. Verify rule generation
-7. Upload artifacts
+7. Upload `detection-rules` artifact
 
-### 3. Integration Test (Simple)
+---
+
+#### 3. Integration Test - Elasticsearch
 **File:** `.github/workflows/integration-test-simple.yml`
-**Trigger:** Manual dispatch with artifact_run_id
+**Trigger:** Manual dispatch with `artifact_run_id` parameter
 **Runtime:** 1-2 minutes
 
-Tests generated rules with Docker Elasticsearch.
+**Purpose:** Standalone integration testing (can be run independently)
 
-### 4. Mock SIEM Deployment
+**Usage:**
+```bash
+gh workflow run integration-test-simple.yml -f artifact_run_id=<RUN_ID>
+```
+
+**What it does:**
+- Downloads `detection-rules` artifact from specified run
+- Starts ephemeral Elasticsearch 8.12.0 (Docker)
+- Deploys rules and ingests test payloads
+- Calculates precision, recall, F1, accuracy
+- Uploads `integration-test-results` artifact
+
+**Note:** The end-to-end test runs this logic inline instead of calling this workflow to avoid dependency issues.
+
+---
+
+#### 4. Mock SIEM Deployment
 **File:** `.github/workflows/mock-deploy.yml`
-**Trigger:** PR merge to main
+**Trigger:** PR merge to main (with staged rules)
 **Runtime:** 2-3 minutes
 
-Demonstrates deployment to production (mock).
+**Purpose:** Demonstrates production deployment after human review.
+
+**Workflow:**
+1. PR created with staged rules → human review
+2. PR approved and merged → triggers this workflow
+3. Deploys to ephemeral Elasticsearch (mock production)
+4. Moves approved rules to `production_rules/`
+5. Archives deployment with audit trail
+
+---
+
+#### 5. Cleanup Stale Artifacts
+**File:** `.github/workflows/cleanup-stale-artifacts.yml`
+**Trigger:** Weekly schedule (Sunday 2AM UTC) or manual dispatch
+**Runtime:** <1 minute
+
+**Purpose:** Prevents artifact clutter and quota issues.
+
+**What it cleans:**
+- Generated artifacts not linked to open PRs
+- Session results (temporary execution logs)
+- Staging directories
+
+**Protected:**
+- `production_rules/` (human-approved rules)
+- Files linked to open PRs
+- Artifacts from recent workflow runs
 
 ## Security Features
 

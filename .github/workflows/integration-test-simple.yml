@@ -1,4 +1,4 @@
-name: Integration Test (Simple)
+name: Integration Test - Elasticsearch
 
 on:
   workflow_dispatch:

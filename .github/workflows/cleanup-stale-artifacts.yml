@@ -47,6 +47,7 @@ jobs:
           echo "Fetching open PRs..."
           OPEN_PRS=$(gh pr list --state open --json number --jq '.[].number' | tr '\n' ',' | sed 's/,$//')
           echo "open_prs=$OPEN_PRS" >> $GITHUB_OUTPUT
+          sleep 1  # Prevent race condition with GITHUB_OUTPUT
           echo "Open PRs: $OPEN_PRS"
 
       - name: Identify Stale Artifacts
@@ -112,7 +113,9 @@ jobs:
 
           #save results
           echo -e "stale_items=$STALE_ITEMS" >> $GITHUB_OUTPUT
+          sleep 1  # Prevent race condition with GITHUB_OUTPUT
           echo -e "protected_items=$PROTECTED_ITEMS" >> $GITHUB_OUTPUT
+          sleep 1  # Prevent race condition with GITHUB_OUTPUT
 
           #summary
           echo "Stale artifacts identified:"
@@ -168,6 +171,7 @@ jobs:
           echo ""
           echo "Cleaned $CLEANED_COUNT stale items"
           echo "cleaned_count=$CLEANED_COUNT" >> $GITHUB_OUTPUT
+          sleep 1  # Prevent race condition with GITHUB_OUTPUT
 
       - name: Commit Cleanup
         id: commit
@@ -179,6 +183,7 @@ jobs:
           if git diff --quiet && git diff --cached --quiet; then
             echo "No stale artifacts to clean"
             echo "changes=false" >> $GITHUB_OUTPUT
+            sleep 1  # Prevent race condition with GITHUB_OUTPUT
           else
             git add -A
 
@@ -197,6 +202,7 @@ Automated cleanup via scheduled workflow."
             git push
 
             echo "changes=true" >> $GITHUB_OUTPUT
+            sleep 1  # Prevent race condition with GITHUB_OUTPUT
           fi
 
       - name: Summary

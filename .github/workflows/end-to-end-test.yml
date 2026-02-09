@@ -1,7 +1,41 @@
 name: End-to-End Detection Pipeline Test
 
-#master orchestration workflow to test complete pipeline
-#triggers all workflows in sequence and aggregates results
+#========================================
+# MASTER ORCHESTRATION WORKFLOW
+#========================================
+# This workflow orchestrates the complete detection engineering pipeline end-to-end.
+# It coordinates multiple component workflows and aggregates their results.
+#
+# ORCHESTRATION FLOW:
+#   1. GENERATE (calls: generate-detections.yml via workflow_call)
+#      └─> Generates detection rules from CTI sources
+#      └─> Uploads artifact: detection-rules
+#
+#   2. INTEGRATION-TEST (runs: integration-test-elasticsearch inline)
+#      └─> Downloads detection-rules artifact from step 1
+#      └─> Tests rules with ephemeral Elasticsearch (Docker)
+#      └─> Uploads artifact: integration-test-results
+#
+#   3. TTP-VALIDATION (runs: TTP intent validator inline, optional)
+#      └─> Downloads detection-rules artifact from step 1
+#      └─> Validates test payloads with Gemini 2.5 Pro
+#      └─> Uploads artifact: ttp-validation-report
+#
+#   4. SUMMARY (runs: aggregation inline)
+#      └─> Downloads all artifacts
+#      └─> Generates comprehensive pipeline summary
+#      └─> Uploads artifact: pipeline-summary
+#
+# WORKFLOW DEPENDENCIES:
+#   - Uses workflow_call to reuse generate-detections.yml
+#   - Other steps run inline to avoid circular dependencies
+#   - Artifacts passed between jobs via upload/download-artifact
+#
+# USAGE:
+#   gh workflow run end-to-end-test.yml
+#   gh workflow run end-to-end-test.yml -f skip_generation=true -f existing_run_id=123456
+#   gh workflow run end-to-end-test.yml -f run_ttp_validator=false
+#========================================
 
 on:
   workflow_dispatch:
