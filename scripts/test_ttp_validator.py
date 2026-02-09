@@ -15,6 +15,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from detection_agent.tools.ttp_intent_validator import validate_all_rules
 
 async def main():
+    #get rules directory from command-line argument or default to production_rules
+    if len(sys.argv) > 1:
+        rules_dir = Path(sys.argv[1])
+    else:
+        rules_dir = Path(__file__).parent.parent / 'production_rules'
+
+    if not rules_dir.exists():
+        print(f"ERROR: Rules directory not found: {rules_dir}")
+        return
+
     #load TTP validator prompt
     prompt_path = Path(__file__).parent.parent / 'detection_agent/prompts/ttp_validator_prompt.md'
     with open(prompt_path) as f:
@@ -22,6 +32,8 @@ async def main():
 
     #get GCP project from env or gcloud config
     project = os.getenv('GOOGLE_CLOUD_PROJECT')
+    location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
+
     if not project:
         try:
             project = subprocess.check_output(['gcloud', 'config', 'get-value', 'project'], text=True).strip()
@@ -32,20 +44,21 @@ async def main():
         print("ERROR: GCP project not configured. Set GOOGLE_CLOUD_PROJECT or run 'gcloud config set project PROJECT_ID'")
         return
 
-    print(f"Using GCP project: {project}\n")
+    print(f"Using GCP project: {project}")
+    print(f"Using location: {location}")
+    print(f"Loading rules from: {rules_dir}\n")
 
     #initialize Gemini client
     client = genai.Client(
         vertexai=True,
         project=project,
-        location='us-central1'
+        location=location
     )
 
-    #load production rules
-    rules_dir = Path(__file__).parent.parent / 'production_rules'
+    #load rules
     rules = []
 
-    print("Loading production rules...")
+    print("Loading detection rules...")
     for rule_file in sorted(rules_dir.glob('*.yml')):
         with open(rule_file) as f:
             rule = yaml.safe_load(f)
