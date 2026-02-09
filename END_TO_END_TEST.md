@@ -368,6 +368,31 @@ gh workflow run end-to-end-test.yml \
 
 ---
 
+### PR Creation Stage Fails
+
+**Symptoms:** `auto-create-pr` job fails with:
+```
+GitHub Actions is not permitted to create or approve pull requests
+```
+
+**Cause:** Repository workflow permissions not configured
+
+**Solutions:**
+1. Go to **Settings → Actions → General** in your repository
+2. Scroll to **Workflow permissions**
+3. Enable: **"Allow GitHub Actions to create and approve pull requests"**
+4. Click **Save**
+5. Re-run the failed workflow job
+
+**Note:** This is a one-time configuration. After enabling, all future workflows will be able to auto-create PRs.
+
+**Alternative:** If you prefer not to enable auto-PR creation:
+- Manually create PR from the generated branch (check workflow logs for branch name)
+- Detection rules are already committed and ready for review
+- Only the PR creation step failed, all detection work succeeded
+
+---
+
 ### Quality Thresholds Not Met
 
 **Symptoms:** Pipeline completes but shows ⚠️ WARN status

@@ -334,6 +334,28 @@ if ! is_complete "github_setup"; then
             --add-topic "gcp" \
             --add-topic "$ENV_TAG" 2>/dev/null || true
         echo "  ✓ GitHub topics added"
+
+        #IMPORTANT: GitHub Actions PR permissions
+        echo ""
+        echo -e "${YELLOW}  ⚠ CRITICAL: GitHub Actions PR Permissions${NC}"
+        echo "  For automated PR creation, you must enable:"
+        echo "  Settings → Actions → General → Workflow permissions"
+        echo "  ✓ Allow GitHub Actions to create and approve pull requests"
+        echo ""
+        echo "  URL: https://github.com/$REPO/settings/actions"
+        echo ""
+        read -p "  Have you enabled this setting? (y/n): " PR_PERM
+        if [ "$PR_PERM" != "y" ]; then
+            echo -e "${YELLOW}  ⚠ WARNING: Auto-PR creation will fail without this permission${NC}"
+            echo "  Enable it now, or setup will continue without auto-PR"
+            read -p "  Continue anyway? (y/n): " CONTINUE
+            if [ "$CONTINUE" != "y" ]; then
+                echo "  Enable the permission and re-run bootstrap"
+                exit 1
+            fi
+        else
+            echo "  ✓ GitHub Actions PR permissions confirmed"
+        fi
     else
         #manual setup instructions
         echo -e "${YELLOW}Manual GitHub Setup Required${NC}"
@@ -364,6 +386,12 @@ if ! is_complete "github_setup"; then
         echo "   Secret 2:"
         echo "     Name: GCP_PROJECT_ID"
         echo "     Value: $PROJECT_ID"
+        echo ""
+        echo "3. Enable GitHub Actions PR permissions (CRITICAL):"
+        echo "   - Go to: https://github.com/$REPO/settings/actions"
+        echo "   - Scroll to 'Workflow permissions'"
+        echo "   - ✓ Enable: Allow GitHub Actions to create and approve pull requests"
+        echo "   - Click 'Save'"
         echo ""
         read -p "Press Enter after completing GitHub setup..."
 

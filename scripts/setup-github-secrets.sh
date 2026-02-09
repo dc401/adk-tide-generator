@@ -66,3 +66,16 @@ cat "$KEY_FILE" | gh secret set GCP_SA_KEY
 echo ""
 echo "✓ Secrets configured for $REPO"
 gh secret list
+
+echo ""
+echo "===================================="
+echo "CRITICAL: Enable PR Permissions"
+echo "===================================="
+echo ""
+echo "For automated PR creation to work, enable:"
+echo "  Settings → Actions → General → Workflow permissions"
+echo "  ✓ Allow GitHub Actions to create and approve pull requests"
+echo ""
+echo "URL: https://github.com/$REPO/settings/actions"
+echo ""
+echo "Without this, end-to-end workflow will fail at PR creation step."

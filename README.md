@@ -85,6 +85,17 @@ CTI Files → Detection Agent → Elasticsearch Detection Rules (YAML)
 - gcloud CLI ([installation guide](https://cloud.google.com/sdk/docs/install))
 - Docker (for integration testing with Elasticsearch)
 
+### GitHub Repository Permissions
+
+**IMPORTANT:** For automated PR creation, you must enable GitHub Actions permissions:
+
+1. Go to **Settings → Actions → General** in your repository
+2. Scroll to **Workflow permissions**
+3. Enable: **"Allow GitHub Actions to create and approve pull requests"**
+4. Click **Save**
+
+Without this setting, workflows will fail when trying to auto-create review PRs.
+
 ## Quick Setup
 
 ### Option 1: Automated Bootstrap (Recommended)
@@ -649,6 +660,21 @@ python scripts/test_ttp_validator.py production_rules/
 ```
 
 ## Troubleshooting
+
+### GitHub Actions PR Creation Failed
+
+**Error:** `GitHub Actions is not permitted to create or approve pull requests`
+
+**Cause:** Repository workflow permissions not configured
+
+**Fix:**
+1. Go to **Settings → Actions → General** in your repository
+2. Scroll to **Workflow permissions**
+3. Enable: **"Allow GitHub Actions to create and approve pull requests"**
+4. Click **Save**
+5. Re-run the failed workflow job
+
+This is a one-time configuration. After enabling, all future workflows will be able to auto-create PRs.
 
 ### GCP Authentication Errors
 ```bash
