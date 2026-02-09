@@ -161,10 +161,114 @@ WRONG: cloud.provider:gcp AND event.category:cloud AND gcp.audit.service.name:co
 - `7a2f48c` - Added quality-driven retry loop
 - `a771f26` - Removed unused imports
 
+## Test Results After Dynamic Prompt Fix
+
+**Run ID:** 21822584073 (completed 11:14 UTC)
+
+**Overall Metrics:**
+- Precision: 37.5% (Target: ≥60%) ❌ (WORSE than before)
+- Recall: 60.0% (Target: ≥70%) ❌ (slightly worse)
+- F1 Score: 0.462
+- Accuracy: 41.7%
+
+### Per-Rule Breakdown
+
+**GCP Rules - Now Working (Dynamic Prompt Fixed These):**
+1. `gcp_firewall_rule_modification` - 40% P / 100% R ✅
+2. `gcp_new_compute_instance_creation` - 40% P / 100% R ✅
+3. `gcp_compute_snapshot_deletion` - 40% P / 100% R ✅
+4. `gcp_-_instance_ssh_key_modification` - 25% P / 50% R (partial)
+5. `gcp_-_instance_startup_script_modification` - 0% P / 0% R (field mismatch)
+
+**Windows Rules - Still Broken:**
+1. `akira_-_windows_shadow_copy_deletion` - 0% P / 0% R ❌ (all 3 TP tests failed)
+2. `akira_-_windows_service_stop_or_disable` - No test cases generated ❌
+3. `akira_-_ransom_note_file_creation` - 40% P / 100% R (high FP rate)
+
+## Root Cause: Test Payload Generation Issues
+
+### Issue #1: Windows Shadow Copy Rule Not Matching
+
+**Query (looks correct):**
+```lucene
+event.category:process AND event.type:start AND
+(process.name:(*vssadmin*) AND process.command_line:(*delete*shadows*))
+```
+
+**Test Results:**
+- TP test 1: "Malicious vssadmin shadow deletion" - Expected match, DIDN'T MATCH (FN)
+- TP test 2: "Malicious wmic shadowcopy deletion" - Expected match, DIDN'T MATCH (FN)
+- TP test 3: "Malicious bcdedit recovery disable" - Expected match, DIDN'T MATCH (FN)
+
+**Hypothesis:** Test payload structure doesn't match query expectations (field names or values)
+
+### Issue #2: Windows Service Stop Rule Has No Tests
+
+**Rule:** `akira_-_windows_service_stop_or_disable`
+**Results:** All metrics 0, "details": []
+**Problem:** Test generation agent failed to create ANY test payloads for this rule
+
+### Issue #3: GCP Rules High False Positive Rate
+
+**Pattern:** All GCP rules have 3 FPs out of 5 tests (60% FP rate)
+**Example:** TN test "Normal GCP instance listing API call" triggers firewall/snapshot rules
+**Problem:** Test payloads have wrong event.action values OR queries too broad
+
+## Diagnosis Plan
+
+1. **Check Windows test payloads** - Verify field structure matches ECS
+2. **Check test generation** - Why did service stop rule get 0 tests?
+3. **Check GCP TN/FP payloads** - Do they have correct event.action values?
+
+## Test Results After Index Mapping Fix
+
+**Run ID:** 21822965084 (completed 11:27 UTC)
+
+**Overall Metrics:**
+- Precision: 43.2% (Target: ≥60%) ❌ (improved from 37.5%)
+- Recall: 80.0% (Target: ≥70%) ✅✅ (MAJOR improvement from 60%)
+- F1 Score: 0.561 (improved from 0.462)
+- Accuracy: 46.8%
+
+### BREAKTHROUGH: Windows Rules Now Working!
+
+**Index Mapping Fix Resolved Field Type Issues:**
+
+**Windows Rules - ALL NOW DETECTING:**
+1. `akira_ransomware_-_shadow_copy_deletion` - 50% P / 100% R ✅✅ (was 0%)
+   - ALL 3 TP tests now match (vssadmin, wmic, bcdedit)
+   - Fixed by mapping process.name/command_line as "wildcard" type
+2. `akira_ransomware_-_service_stop_via_cli` - 50% P / 100% R ✅✅ (tests generated now)
+3. `akira_ransomware_-_ransom_note_creation` - 40% P / 100% R ✅
+
+**GCP Rules - Still Working:**
+1. `gcp_firewall_rule_modification` - 40% P / 100% R ✅
+2. `gcp_new_compute_instance_launch` - 40% P / 100% R ✅
+3. `gcp_os_windows_password_reset` - 40% P / 100% R ✅
+4. `gcp_compute_snapshot_deletion` - 40% P / 100% R ✅
+5. `gcp_compute_startup_script_modification` - 0% P / 0% R ❌ (nested field issue)
+6. `gcp_ssh_backdoor_creation_via_metadata` - 0% P / 0% R ❌ (nested field issue)
+
+## Remaining Issue: Test Payload Quality (Low Precision)
+
+**Pattern:** ALL working rules have 40-50% precision due to TN/FP test payloads incorrectly matching
+
+**Examples:**
+- TN test "Normal system activity" triggers shadow copy rule (should NOT match)
+- TN test "Normal GCP API call (storage bucket creation)" triggers firewall rule (should NOT match)
+- FP test "Legitimate admin deleting snapshot" triggers snapshot deletion rule (should NOT match)
+
+**Root Cause:** Test payloads for TN/FP cases don't properly differentiate from TP cases
+
+**Solutions to Consider:**
+1. Improve test payload generation prompt to create more realistic benign payloads
+2. Add more specific exclusion filters to detection queries
+3. Enhance FP test cases with correct event.action values for benign operations
+
 ## Status
 
-**Current:** Waiting for end-to-end test with improved prompt (triggered 01:10 UTC)
+**Current:** Recall threshold MET (80% ≥ 70%) ✅ | Precision still needs improvement (43.2% < 60%)
 
-**Expected Completion:** ~01:25-01:30 UTC
+**Major Win:** Index mapping fix resolved Windows rule matching - recall jumped 20%!
 
-**Next Action:** Analyze results and determine if additional refinements needed
+**Next Action:** Improve test payload generation or refine queries to reduce false positives
