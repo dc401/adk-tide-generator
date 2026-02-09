@@ -51,3 +51,5 @@ logs/
 *.tar.gz
 *.tgz
 snapshots/*.tar.gz
+docs/
+docs/archive/

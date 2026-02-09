@@ -1,0 +1,30 @@
+# Temporary Workflow - Bulk Delete Workflow Runs
+#
+# This workflow uses a marketplace action to delete all old workflow runs.
+# To use:
+#   1. Rename file: _temp-cleanup-runs.yml → temp-cleanup-runs.yml
+#   2. Run: gh workflow run temp-cleanup-runs.yml
+#   3. Wait for completion
+#   4. Rename back: temp-cleanup-runs.yml → _temp-cleanup-runs.yml
+#
+# The underscore prefix prevents GitHub from recognizing this as an active workflow.
+
+name: Temporary - Bulk Delete Workflow Runs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0

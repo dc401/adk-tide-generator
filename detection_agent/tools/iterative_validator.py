@@ -156,15 +156,36 @@ Generate corrected rules that fix these specific issues.
             #regenerate with feedback
             print(f"\n  Regenerating rules with fixes...")
             await asyncio.sleep(inter_agent_delay)
-            
-            refined_response = await generate_with_retry_func(
-                client,
-                model_config,
-                refinement_prompt,
-                temperature=0.2,  #lower temp for correction
-                tools=[{'type': 'google_search'}],
-                timeout=300  # 5min - validation + field research + JSON regeneration (up to 3 iterations)
-            )
+
+            try:
+                refined_response = await generate_with_retry_func(
+                    client,
+                    model_config,
+                    refinement_prompt,
+                    temperature=0.2,  #lower temp for correction
+                    tools=[{'type': 'google_search'}],
+                    timeout=300  # 5min - validation + field research + JSON regeneration (up to 3 iterations)
+                )
+            except Exception as e:
+                error_type = type(e).__name__
+                print(f"\n  ⚠️  Refinement failed ({error_type}): {str(e)[:100]}")
+                print(f"  Returning partial results from iteration {iteration + 1}")
+
+                #return best attempt with error context
+                return {
+                    'rules': rules_data.get('rules', []),
+                    'cti_context': rules_data.get('cti_context', {}),
+                    'total_rules': len(rules_data.get('rules', [])),
+                    'validation_iterations': iteration + 1,
+                    'validation_history': iteration_history,
+                    'validation_incomplete': True,
+                    'refinement_error': {
+                        'type': error_type,
+                        'message': str(e)[:200],
+                        'iteration': iteration + 1
+                    },
+                    'remaining_issues': validation_issues
+                }
             
             #parse refined response
             try:

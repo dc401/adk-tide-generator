@@ -53,6 +53,26 @@ def create_pr_body(batch_summary: dict) -> str:
     rules = batch_summary.get('rules', [])
     metrics = batch_summary.get('overall_metrics', {})
 
+    #check for warnings (missing TTPs, low scores, etc.)
+    warnings = []
+    for rule in rules:
+        if not rule.get('mitre_ttps'):
+            warnings.append(f"⚠️ **{rule['rule_name']}**: No MITRE TTPs mapped - manual TTP assignment recommended")
+        if not rule.get('references'):
+            warnings.append(f"⚠️ **{rule['rule_name']}**: No threat intelligence references - research CTI sources")
+
+    warnings_section = ""
+    if warnings:
+        warnings_section = f"""
+### ⚠️ Warnings
+
+The following rules may need additional review:
+
+{chr(10).join('- ' + w for w in warnings)}
+
+---
+"""
+
     body = f"""## Detection Rules for Review
 
 **Batch ID:** `{batch_id}`
@@ -60,6 +80,7 @@ def create_pr_body(batch_summary: dict) -> str:
 **Staged:** {batch_summary['staged_timestamp']}
 
 ---
+{warnings_section}
 
 ### Rules in this PR
 
