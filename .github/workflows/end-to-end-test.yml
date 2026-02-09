@@ -248,13 +248,27 @@ jobs:
               exit 0
             fi
 
-            #refine failing rules
+            #run TTP validation before refinement
             echo ""
             echo "⚠️  Recall $RECALL < 0.70"
+            echo "   Running TTP Intent Validation to assess test quality..."
+
+            #run TTP validator (max 15 min timeout)
+            if timeout 15m python3 scripts/test_ttp_validator.py generated/detection_rules > ttp_validation_attempt_${ATTEMPT}.txt 2>&1; then
+              echo "   ✓ TTP validation completed"
+              cat ttp_validation_attempt_${ATTEMPT}.txt
+            else
+              echo "   ⚠️  TTP validation timed out or failed"
+              echo "   Continuing with refinement using test results only"
+              echo "TTP validation failed or timed out" > ttp_validation_attempt_${ATTEMPT}.txt
+            fi
+
+            echo ""
             echo "   Invoking self-healing refinement agent..."
 
             if python3 scripts/refine_failed_rules.py \
               --test-results test_results.json \
+              --ttp-validation ttp_validation_attempt_${ATTEMPT}.txt \
               --rules-dir generated/detection_rules \
               --cti-dir cti_src \
               --output generated/detection_rules \
