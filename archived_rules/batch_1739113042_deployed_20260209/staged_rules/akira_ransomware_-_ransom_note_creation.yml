@@ -1,0 +1,97 @@
+name: Akira Ransomware - Ransom Note Creation
+description: Detects the creation of Akira ransomware's ransom note file, 'akira_readme.txt'.
+  This is a strong indicator of successful data encryption for impact.
+type: query
+query: event.category:file AND event.type:creation AND file.name:*akira_readme.txt*
+language: lucene
+index:
+- logs-*
+- winlogbeat-*
+- filebeat-*
+filters: []
+risk_score: 95
+severity: critical
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1486
+    name: Data Encrypted for Impact
+    reference: https://attack.mitre.org/techniques/T1486/
+references:
+- https://attack.mitre.org/techniques/T1486/
+- https://www.elastic.co/guide/en/ecs/current/ecs-file.html
+author:
+- Detection Agent
+false_positives:
+- Highly unlikely due to the specific filename. If a legitimate file with this exact
+  name is created, it should be investigated.
+note: '## Triage
+
+  Investigate: the process that created the file, the user context, and the directory
+  path. This is a critical alert and requires immediate attention.'
+test_cases:
+- type: TP
+  description: Akira ransom note created in a user directory
+  log_entry:
+    event:
+      category: file
+      type: creation
+    file:
+      name: akira_readme.txt
+      path: C:\Users\victim\Documents\akira_readme.txt
+    '@timestamp': '2024-03-12T22:30:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Akira ransom note created in a shared drive
+  log_entry:
+    event:
+      category: file
+      type: creation
+    file:
+      name: akira_readme.txt
+      path: \\Share\Data\akira_readme.txt
+    '@timestamp': '2024-03-12T22:30:10Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Ransomware using a different ransom note name
+  log_entry:
+    event:
+      category: file
+      type: creation
+    file:
+      name: RECOVER_MY_FILES.txt
+      path: C:\Users\victim\RECOVER_MY_FILES.txt
+    '@timestamp': '2024-03-12T22:31:00Z'
+  expected_match: false
+  evasion_technique: Uses a different, non-specific ransom note filename. This rule
+    is highly specific to 'akira_readme.txt'.
+- type: FP
+  description: Legitimate file with similar name (unlikely for 'akira_readme.txt')
+  log_entry:
+    event:
+      category: file
+      type: creation
+    file:
+      name: readme.txt
+      path: C:\Program Files\App\readme.txt
+    '@timestamp': '2024-03-14T10:20:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal document creation
+  log_entry:
+    event:
+      category: file
+      type: creation
+    file:
+      name: report.docx
+      path: C:\Users\user\Documents\report.docx
+    '@timestamp': '2024-03-14T10:25:00Z'
+  expected_match: false
+  evasion_technique: null

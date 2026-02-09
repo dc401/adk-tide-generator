@@ -1,0 +1,123 @@
+name: Akira Ransomware - Windows Shadow Copy Deletion
+description: Detects attempts by Akira ransomware to delete Volume Shadow Copies or
+  disable system recovery features using vssadmin, wmic, or bcdedit. This action is
+  typically performed to prevent system recovery and maximize impact.
+type: query
+query: event.category:process AND event.type:start AND event.code:1 AND (process.name:(*vssadmin*
+  OR *wmic* OR *bcdedit*) AND process.command_line:(*delete*shadows* OR *shadowcopy*delete*
+  OR *recoveryenabled*no* OR *bootstatuspolicy*ignoreallfailures*))
+language: lucene
+index:
+- winlogbeat-*
+- logs-*
+filters: []
+risk_score: 85
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1490
+    name: Inhibit System Recovery
+    reference: https://attack.mitre.org/techniques/T1490/
+references:
+- https://attack.mitre.org/techniques/T1490/
+- https://www.elastic.co/guide/en/ecs/current/ecs-process.html
+author:
+- Detection Agent
+false_positives:
+- System administrators performing backup maintenance or system recovery configuration
+  changes.
+note: '## Triage
+
+  Investigate: parent process, user context, timing, and full command line arguments.
+
+  Escalate if: executed by non-admin, unusual timing, or from a suspicious parent
+  process.'
+test_cases:
+- type: TP
+  description: Malicious vssadmin shadow deletion
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: vssadmin.exe
+      command_line: vssadmin delete shadows /all /quiet
+      executable: C:\Windows\System32\vssadmin.exe
+    '@timestamp': '2024-03-12T22:15:10Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious wmic shadow copy deletion
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: wmic.exe
+      command_line: wmic shadowcopy delete
+      executable: C:\Windows\System32\wbem\wmic.exe
+    '@timestamp': '2024-03-12T22:15:20Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious bcdedit to disable recovery
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: bcdedit.exe
+      command_line: bcdedit /set {default} recoveryenabled no
+      executable: C:\Windows\System32\bcdedit.exe
+    '@timestamp': '2024-03-12T22:15:30Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: PowerShell evasion using WMI API for shadow deletion
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: powershell.exe
+      command_line: Get-WmiObject Win32_ShadowCopy | ForEach-Object {$_.Delete()}
+    '@timestamp': '2024-03-12T22:16:00Z'
+  expected_match: false
+  evasion_technique: Uses WMI API via PowerShell instead of direct CLI tools (vssadmin,
+    wmic, bcdedit) which this rule covers.
+- type: FP
+  description: Admin checking shadow copy status
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: vssadmin.exe
+      command_line: vssadmin list shadows
+      executable: C:\Windows\System32\vssadmin.exe
+    '@timestamp': '2024-03-14T10:00:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal system activity
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: explorer.exe
+      command_line: C:\Windows\explorer.exe
+    '@timestamp': '2024-03-14T10:05:00Z'
+  expected_match: false
+  evasion_technique: null

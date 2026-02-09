@@ -1,0 +1,17 @@
+{
+  "batch_id": "batch_1770680213",
+  "timestamp": "2026-02-09T23:36:53.232125",
+  "rules_staged": 10,
+  "metrics": {
+    "TP": 7,
+    "FN": 0,
+    "FP": 9,
+    "TN": 0,
+    "total": 16,
+    "precision": 0.438,
+    "recall": 1.0,
+    "f1_score": 0.609,
+    "accuracy": 0.438
+  },
+  "source": "manual_review_pr"
+}
