@@ -1,0 +1,125 @@
+name: Akira Ransomware - Service Stop (Process Execution)
+description: Detects attempts by Akira ransomware to stop critical services using
+  command-line utilities like net, sc, or taskkill. This is often done to disable
+  security products or release files for encryption.
+type: query
+query: event.category:process AND event.type:start AND event.code:(1 OR 4688) AND
+  (process.name:(*net* OR *sc* OR *taskkill*) AND process.command_line:(*stop* OR
+  *config*start*=disabled* OR *F*IM*))
+language: lucene
+index:
+- logs-*
+- winlogbeat-*
+- filebeat-*
+filters: []
+risk_score: 73
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1489
+    name: Service Stop
+    reference: https://attack.mitre.org/techniques/T1489/
+references:
+- https://attack.mitre.org/techniques/T1489/
+- https://www.elastic.co/guide/en/ecs/current/ecs-process.html
+author:
+- Detection Agent
+false_positives:
+- System administrators performing maintenance or troubleshooting.
+- Legitimate software installations or updates that stop services.
+note: '## Triage
+
+  Investigate: parent process, user context, timing, and the specific service being
+  stopped/configured.
+
+  Escalate if: executed by non-admin, unusual timing, or targeting security/backup
+  services.'
+test_cases:
+- type: TP
+  description: Malicious net stop command
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: net.exe
+      command_line: net stop "Veeam Backup Service" /y
+      executable: C:\Windows\System32\net.exe
+    '@timestamp': '2024-03-12T22:17:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious sc config to disable service
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 4688
+    process:
+      name: sc.exe
+      command_line: sc config "Sophos Agent" start= disabled
+      executable: C:\Windows\System32\sc.exe
+    '@timestamp': '2024-03-12T22:17:10Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Malicious taskkill to terminate process
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: taskkill.exe
+      command_line: taskkill /F /IM sqlservr.exe
+      executable: C:\Windows\System32\taskkill.exe
+    '@timestamp': '2024-03-12T22:17:20Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Service stopped via PowerShell Stop-Service cmdlet
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: powershell.exe
+      command_line: Stop-Service -Name 'MSSQLSERVER'
+    '@timestamp': '2024-03-12T22:18:00Z'
+  expected_match: false
+  evasion_technique: Uses PowerShell cmdlet instead of direct CLI tools - rule only
+    covers net/sc/taskkill process execution.
+- type: FP
+  description: Admin starting a service
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: net.exe
+      command_line: net start "Spooler"
+      executable: C:\Windows\System32\net.exe
+    '@timestamp': '2024-03-14T10:10:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal system activity (cmd.exe)
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: cmd.exe
+      command_line: cmd.exe /c echo hello world
+    '@timestamp': '2024-03-14T10:15:00Z'
+  expected_match: false
+  evasion_technique: null

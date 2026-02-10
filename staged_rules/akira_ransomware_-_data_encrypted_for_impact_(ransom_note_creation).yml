@@ -1,0 +1,122 @@
+name: Akira Ransomware - Data Encrypted for Impact (Ransom Note Creation)
+description: Detects the creation of common ransom note filenames and extensions,
+  a strong indicator of ransomware activity like Akira. This rule focuses on file
+  creation events.
+type: query
+query: event.category:file AND event.type:creation AND event.code:11 AND file.name:(*readme*
+  OR *how_to_decrypt* OR *restore_files*) AND file.extension:(txt OR html OR hta)
+language: lucene
+index:
+- logs-*
+- winlogbeat-*
+- filebeat-*
+filters: []
+risk_score: 90
+severity: critical
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/techniques/TA0040/
+  technique:
+  - id: T1486
+    name: Data Encrypted for Impact
+    reference: https://attack.mitre.org/techniques/T1486/
+references:
+- https://attack.mitre.org/techniques/T1486/
+- https://www.elastic.co/guide/en/ecs/current/ecs-file.html
+author:
+- Detection Agent
+false_positives:
+- Legitimate software creating documentation or help files with similar names (e.g.,
+  'readme.txt' for an installer).
+note: '## Triage
+
+  Investigate: the full path of the created file, the process that created it, and
+  other file system activity around the same time.
+
+  Escalate immediately if: multiple such files are created across different directories
+  or on network shares.'
+test_cases:
+- type: TP
+  description: Creation of typical Akira ransom note
+  log_entry:
+    event:
+      category: file
+      type: creation
+      code: 11
+    file:
+      name: akira_readme.txt
+      extension: txt
+      path: C:\Users\Victim\Documents\akira_readme.txt
+    process:
+      name: malware.exe
+    '@timestamp': '2024-03-12T22:21:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Creation of generic HTML ransom note
+  log_entry:
+    event:
+      category: file
+      type: creation
+      code: 11
+    file:
+      name: HOW_TO_DECRYPT.html
+      extension: html
+      path: C:\EncryptedData\HOW_TO_DECRYPT.html
+    process:
+      name: encryptor.exe
+    '@timestamp': '2024-03-12T22:21:15Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Ransom note content appended to existing file
+  log_entry:
+    event:
+      category: file
+      type: change
+      code: 11
+    file:
+      name: document.txt
+      extension: txt
+      path: C:\Users\Victim\document.txt
+    process:
+      name: malware.exe
+    '@timestamp': '2024-03-12T22:22:00Z'
+  expected_match: false
+  evasion_technique: This rule specifically looks for file *creation* events, not
+    modifications to existing files.
+- type: FP
+  description: Legitimate software creating a readme.txt
+  log_entry:
+    event:
+      category: file
+      type: creation
+      code: 11
+    file:
+      name: readme.txt
+      extension: txt
+      path: C:\Program Files\Software\readme.txt
+    process:
+      name: installer.exe
+    '@timestamp': '2024-03-14T10:30:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal file creation (log file)
+  log_entry:
+    event:
+      category: file
+      type: creation
+      code: 11
+    file:
+      name: application.log
+      extension: log
+      path: C:\ProgramData\App\application.log
+    process:
+      name: appservice.exe
+    '@timestamp': '2024-03-14T10:35:00Z'
+  expected_match: false
+  evasion_technique: null

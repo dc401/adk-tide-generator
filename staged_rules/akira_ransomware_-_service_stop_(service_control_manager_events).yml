@@ -1,0 +1,110 @@
+name: Akira Ransomware - Service Stop (Service Control Manager Events)
+description: Detects service state changes or configuration modifications indicative
+  of Akira ransomware attempting to disable security or backup services. This rule
+  monitors Windows Event IDs 7036 (service stopped) and 7040 (service start type changed).
+type: query
+query: event.category:service AND event.type:(stop OR change) AND event.code:(7036
+  OR 7040)
+language: lucene
+index:
+- logs-*
+- winlogbeat-*
+filters: []
+risk_score: 73
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1489
+    name: Service Stop
+    reference: https://attack.mitre.org/techniques/T1489/
+references:
+- https://attack.mitre.org/techniques/T1489/
+- https://www.elastic.co/guide/en/ecs/current/ecs-service.html
+author:
+- Detection Agent
+false_positives:
+- System administrators performing maintenance or troubleshooting.
+- Legitimate software installations or updates that stop or reconfigure services.
+note: '## Triage
+
+  Investigate: the service name, user context, and the nature of the state change
+  (stopped, disabled). Correlate with process execution logs if available.
+
+  Escalate if: multiple services are stopped/disabled in a short period, or critical
+  security/backup services are affected.'
+test_cases:
+- type: TP
+  description: Service entered stopped state (Event ID 7036)
+  log_entry:
+    event:
+      category: service
+      type: stop
+      code: 7036
+    service:
+      name: Veeam Backup Service
+      state: stopped
+    user:
+      name: SYSTEM
+    '@timestamp': '2024-03-12T22:19:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Service start type changed (Event ID 7040)
+  log_entry:
+    event:
+      category: service
+      type: change
+      code: 7040
+    service:
+      name: Sophos Agent
+      start_type: disabled
+    user:
+      name: Administrator
+    '@timestamp': '2024-03-12T22:19:10Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Service stopped via taskkill (process event)
+  log_entry:
+    event:
+      category: process
+      type: start
+      code: 1
+    process:
+      name: taskkill.exe
+      command_line: taskkill /F /IM sqlservr.exe
+    '@timestamp': '2024-03-12T22:20:00Z'
+  expected_match: false
+  evasion_technique: This rule specifically targets Service Control Manager events
+    (7036, 7040), not process execution that might lead to a service stop.
+- type: FP
+  description: Legitimate service restart (multiple 7036/7035 events)
+  log_entry:
+    event:
+      category: service
+      type: stop
+      code: 7036
+    service:
+      name: Windows Update
+      state: stopped
+    user:
+      name: SYSTEM
+    '@timestamp': '2024-03-14T10:20:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal system event (non-service related)
+  log_entry:
+    event:
+      category: system
+      type: info
+      code: 1000
+    message: A system information event occurred.
+    '@timestamp': '2024-03-14T10:25:00Z'
+  expected_match: false
+  evasion_technique: null

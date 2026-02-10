@@ -1,0 +1,126 @@
+name: Scattered Spider - GCP SSH Backdoor (Metadata Modification)
+description: Detects attempts by threat actors like Scattered Spider to establish
+  SSH backdoors by modifying instance metadata to add SSH keys. This provides persistent
+  and covert remote access to compromised systems.
+type: query
+query: event.category:api AND cloud.provider:gcp AND event.action:compute.instances.setMetadata
+  AND event.outcome:success AND gcp.audit.metadata.request.key:ssh-keys
+language: lucene
+index:
+- gcp.auditlog-*
+filters: []
+risk_score: 73
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0003
+    name: Persistence
+    reference: https://attack.mitre.org/tactics/TA0003/
+  technique:
+  - id: T1098.004
+    name: 'Account Manipulation: SSH Authorized Keys'
+    reference: https://attack.mitre.org/techniques/T1098/004/
+references:
+- https://attack.mitre.org/techniques/T1098/004/
+- https://www.elastic.co/guide/en/ecs/current/ecs-cloud.html
+author:
+- Detection Agent
+false_positives:
+- Legitimate administrators adding SSH keys for authorized access or automation.
+- Automated deployment scripts.
+note: '## Triage
+
+  Investigate: the user identity, source IP, and the specific SSH key being added.
+  Correlate with other access attempts or changes.
+
+  Escalate if: SSH key is added by an unauthorized account, or an unfamiliar key is
+  introduced.'
+test_cases:
+- type: TP
+  description: Successful addition of SSH key to instance metadata
+  log_entry:
+    event:
+      category: api
+      type: change
+      action: compute.instances.setMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: attacker@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: compromised-vm
+        metadata:
+          request:
+            key: ssh-keys
+            value: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...
+    '@timestamp': '2024-03-12T22:45:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: SSH key added via OS Login API (different API)
+  log_entry:
+    event:
+      category: api
+      type: change
+      action: oslogin.users.importSshPublicKey
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: oslogin.googleapis.com
+    user:
+      name: attacker@example.com
+    '@timestamp': '2024-03-12T22:45:10Z'
+  expected_match: false
+  evasion_technique: This rule targets 'compute.instances.setMetadata' for SSH keys,
+    not the OS Login API.
+- type: FP
+  description: Legitimate setting of other instance metadata
+  log_entry:
+    event:
+      category: api
+      type: change
+      action: compute.instances.setMetadata
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: admin@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: production-web-server
+        metadata:
+          request:
+            key: enable-oslogin
+            value: 'TRUE'
+    '@timestamp': '2024-03-14T11:30:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal GCP compute instance listing
+  log_entry:
+    event:
+      category: api
+      type: info
+      action: compute.instances.list
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: dev@example.com
+    '@timestamp': '2024-03-14T11:35:00Z'
+  expected_match: false
+  evasion_technique: null

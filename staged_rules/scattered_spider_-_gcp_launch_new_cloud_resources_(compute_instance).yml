@@ -1,0 +1,149 @@
+name: Scattered Spider - GCP Launch New Cloud Resources (Compute Instance)
+description: Detects the creation of new Google Cloud Compute Engine instances, a
+  tactic used by threat actors like Scattered Spider to establish C2 infrastructure,
+  expand their presence, or for resource hijacking.
+type: query
+query: event.category:api AND cloud.provider:gcp AND event.action:compute.instances.insert
+  AND event.outcome:success
+language: lucene
+index:
+- gcp.auditlog-*
+filters: []
+risk_score: 73
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0003
+    name: Persistence
+    reference: https://attack.mitre.org/tactics/TA0003/
+  technique:
+  - id: T1078
+    name: Valid Accounts
+    reference: https://attack.mitre.org/techniques/T1078/
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0008
+    name: Lateral Movement
+    reference: https://attack.mitre.org/tactics/TA0008/
+  technique:
+  - id: T1078
+    name: Valid Accounts
+    reference: https://attack.mitre.org/techniques/T1078/
+references:
+- https://attack.mitre.org/techniques/T1078/
+- https://www.elastic.co/guide/en/ecs/current/ecs-cloud.html
+author:
+- Detection Agent
+false_positives:
+- Legitimate creation of new compute instances for development, testing, or scaling
+  by administrators or automated systems.
+note: '## Triage
+
+  Investigate: the user identity, source IP, and the configuration of the new instance
+  (machine type, image, network, startup script). Correlate with expected deployments.
+
+  Escalate if: instances are created by an unauthorized account, with unusual configurations,
+  or outside of normal operational hours.'
+test_cases:
+- type: TP
+  description: Successful creation of a single GCP compute instance
+  log_entry:
+    event:
+      category: api
+      type: creation
+      action: compute.instances.insert
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: attacker@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: malicious-c2-server
+    '@timestamp': '2024-03-12T22:55:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: TP
+  description: Successful bulk creation of GCP compute instances
+  log_entry:
+    event:
+      category: api
+      type: creation
+      action: compute.instances.bulkInsert
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: attacker@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: miner-instance-01
+    '@timestamp': '2024-03-12T22:55:10Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Creation of other cloud resources (e.g., storage bucket)
+  log_entry:
+    event:
+      category: api
+      type: creation
+      action: storage.buckets.create
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: storage.googleapis.com
+    user:
+      name: attacker@example.com
+    '@timestamp': '2024-03-12T22:56:00Z'
+  expected_match: false
+  evasion_technique: This rule specifically targets 'compute.instances.insert' and
+    'compute.instances.bulkInsert' API calls, not other resource types.
+- type: FP
+  description: Legitimate creation of a new compute instance by a developer
+  log_entry:
+    event:
+      category: api
+      type: creation
+      action: compute.instances.insert
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: dev@example.com
+    gcp:
+      audit:
+        resource:
+          type: instance
+          name: test-vm-01
+    '@timestamp': '2024-03-14T11:50:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal GCP compute instance deletion
+  log_entry:
+    event:
+      category: api
+      type: deletion
+      action: compute.instances.delete
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: admin@example.com
+    '@timestamp': '2024-03-14T11:55:00Z'
+  expected_match: false
+  evasion_technique: null

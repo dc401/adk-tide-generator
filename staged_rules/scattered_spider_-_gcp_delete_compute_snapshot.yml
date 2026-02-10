@@ -1,0 +1,117 @@
+name: Scattered Spider - GCP Delete Compute Snapshot
+description: Detects attempts by threat actors like Scattered Spider to delete Google
+  Cloud Compute Engine snapshots. This action is a common tactic to inhibit system
+  recovery and hinder forensic analysis, often preceding or accompanying ransomware
+  operations.
+type: query
+query: event.category:api AND cloud.provider:gcp AND event.action:compute.snapshots.delete
+  AND event.outcome:success
+language: lucene
+index:
+- gcp.auditlog-*
+filters: []
+risk_score: 73
+severity: high
+threat:
+- framework: MITRE ATT&CK
+  tactic:
+    id: TA0040
+    name: Impact
+    reference: https://attack.mitre.org/tactics/TA0040/
+  technique:
+  - id: T1490
+    name: Inhibit System Recovery
+    reference: https://attack.mitre.org/techniques/T1490/
+references:
+- https://attack.mitre.org/techniques/T1490/
+- https://www.elastic.co/guide/en/ecs/current/ecs-cloud.html
+author:
+- Detection Agent
+false_positives:
+- Legitimate administrators performing routine snapshot cleanup or lifecycle management.
+note: '## Triage
+
+  Investigate: the user identity, source IP, and timing of the snapshot deletion.
+  Confirm if the action was authorized and part of a planned activity.
+
+  Escalate if: deletion is unexpected, performed by a suspicious account, or impacts
+  critical recovery points.'
+test_cases:
+- type: TP
+  description: Successful deletion of a GCP compute snapshot
+  log_entry:
+    event:
+      category: api
+      type: deletion
+      action: compute.snapshots.delete
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: attacker@example.com
+    gcp:
+      audit:
+        resource:
+          type: snapshot
+          name: critical-data-snapshot-2024-03-10
+    '@timestamp': '2024-03-12T22:30:00Z'
+  expected_match: true
+  evasion_technique: null
+- type: FN
+  description: Failed attempt to delete a GCP compute snapshot
+  log_entry:
+    event:
+      category: api
+      type: deletion
+      action: compute.snapshots.delete
+      outcome: failure
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: attacker@example.com
+    gcp:
+      audit:
+        resource:
+          type: snapshot
+          name: critical-data-snapshot-2024-03-10
+    '@timestamp': '2024-03-12T22:30:10Z'
+  expected_match: false
+  evasion_technique: This rule is configured to only detect successful API calls (event.outcome:success).
+- type: FP
+  description: Legitimate listing of GCP compute snapshots
+  log_entry:
+    event:
+      category: api
+      type: info
+      action: compute.snapshots.list
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: admin@example.com
+    '@timestamp': '2024-03-14T11:00:00Z'
+  expected_match: false
+  evasion_technique: null
+- type: TN
+  description: Normal GCP compute instance creation
+  log_entry:
+    event:
+      category: api
+      type: creation
+      action: compute.instances.insert
+      outcome: success
+    cloud:
+      provider: gcp
+      service:
+        name: compute.googleapis.com
+    user:
+      name: dev@example.com
+    '@timestamp': '2024-03-14T11:05:00Z'
+  expected_match: false
+  evasion_technique: null
