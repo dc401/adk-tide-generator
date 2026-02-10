@@ -2,6 +2,10 @@
 
 Production-ready automated detection engineering solution that converts CTI intelligence → Elasticsearch Detection Rules with comprehensive multi-level validation, TTP-aligned testing, and self-healing refinement.
 
+- Designed and Core ADK Code: Dennis Chow dchow[AT]xtecsystems.com Refinement by Claude Sonnnet 4.5
+- Version 1.0 Feb 09, 2026
+
+
 ## Features
 
 - **Native Elasticsearch Format:** Detection rules in Elasticsearch Detection API format (Lucene queries + ECS fields)
@@ -740,13 +744,6 @@ python scripts/test_ttp_validator.py \
   generated/detection_rules/
 ```
 
-## Documentation
-
-- [README.md](README.md) - This file
-- [END_TO_END_TEST.md](END_TO_END_TEST.md) - End-to-end testing guide
-- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testing procedures
-- [ARCHITECTURE_ELASTICSEARCH_NATIVE.md](ARCHITECTURE_ELASTICSEARCH_NATIVE.md) - Technical architecture
-
 ## Quality Metrics
 
 ### Target Metrics
@@ -763,27 +760,9 @@ Rules are validated through:
 - LLM quality judge evaluation
 - Human review before deployment
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly:
-   - Unit tests
-   - Integration tests
-   - End-to-end workflow test
-5. Update documentation
-6. Submit a pull request
-
 ## License
 
 MIT License - See LICENSE file for details
-
-## Support
-
-For issues and questions:
-- GitHub Issues: https://github.com/dc401/adk-tide-generator/issues
-- Documentation: See README.md, END_TO_END_TEST.md, TESTING_GUIDE.md
 
 ## Acknowledgments
 
