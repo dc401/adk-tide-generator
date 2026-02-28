@@ -1,6 +1,7 @@
 # Elasticsearch Detection Agent - Automated SIEM Detection Engineering
 
 Production-ready automated detection engineering solution that converts CTI intelligence → Elasticsearch Detection Rules with comprehensive multi-level validation, TTP-aligned testing, and self-healing refinement.
+Google ADK as of 1.23 does not support multi-regional load balancing, which I wnated. Raw gemini calls used instead :(
 
 - Designed and Core Code: Dennis Chow dchow[AT]xtecsystems.com Refinement by Claude Sonnnet 4.5
 - Version 1.0 Feb 09, 2026
